@@ -11,7 +11,8 @@
   ],
   "scripts": {
     "dev": "npx tsc -w -d",
-    "ci:build": "rimraf dist && rollup -c"
+    "ci:build": "rimraf dist && rollup -c",
+    "ci:test": "echo \"No tests yet\""
   },
   "dependencies": {
     "app-root-path": "^3.1.0",
