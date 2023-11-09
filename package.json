@@ -1,6 +1,7 @@
 {
-  "name": "macropack",
+  "name": "@interbolt/macropack",
   "version": "1.0.0-alpha.0",
+  "type": "module",
   "main": "./dist/cjs/bundle.js",
   "module": "./dist/cjs/bundle.js",
   "browser": "./dist/cjs/bundle.js",
