@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "module": "commonjs",
+    "sourceMap": true,
+    "target": "es2022",
+    "declaration": true,
+    "downlevelIteration": true,
+    "preserveWatchOutput": true,
+    "resolveJsonModule": true,
+    "allowUnusedLabels": true
+  },
+  "include": ["./src/**/*.ts", "./src/**/*.json"],
+  "exclude": ["node_modules", "dist"]
+}
