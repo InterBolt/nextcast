@@ -1,32 +1,87 @@
 import { basename, dirname, resolve } from "path";
 import { existsSync } from "fs";
-import { glob } from "glob";
-import * as Types from "../types";
 import appRootPath from "app-root-path";
+import resolveAliasedImport from "./resolveAliasedImport";
 
-const validExts = ["js", "ts", "tsx", "jsx"];
-const routeGroupRegex = /^.*\(.*\)$/;
+export const validExts = ["js", "ts", "tsx", "jsx"];
+export const routeGroupRegex = /^.*\(.*\)$/;
 
-const removeExt = (filePath: string): string => {
+export const removeExt = (filePath: string): string => {
   if (validExts.find((ext) => filePath.endsWith(`.${ext}`))) {
     return filePath.slice(0, filePath.lastIndexOf("."));
   }
   return filePath;
 };
 
-export const withCorrectExt = (filePath: string): string => {
+export const withCorrectExt = (
+  filePath: string,
+  ifFileDoesntExist?: any
+): string => {
   const withoutExt = removeExt(filePath);
   const correctExt = validExts.find((ext) =>
     existsSync(`${withoutExt}.${ext}`)
   );
-  console.log(withoutExt, correctExt);
   if (!correctExt) {
-    throw new Error(`No valid extension found for ${filePath}`);
+    if (typeof ifFileDoesntExist === "undefined") {
+      throw new Error(`No valid extension found for ${filePath}`);
+    }
+    return ifFileDoesntExist;
   }
   return `${withoutExt}.${correctExt}`;
 };
 
-export const getAppDir = (): string => resolve(appRootPath.path, "app");
+export const getProjectRoot = (): string => {
+  const isCWDNextJSProject = existsSync(
+    resolve(process.cwd(), "next.config.js")
+  );
+  if (isCWDNextJSProject) {
+    return process.cwd();
+  }
+  const isRootNextJSProject = existsSync(
+    resolve(appRootPath.path, "next.config.js")
+  );
+  if (isRootNextJSProject) {
+    return appRootPath.path;
+  }
+  throw new Error("Can't locate a NextJS project.");
+};
+
+export const getAppDir = (rootPath?: string): string => {
+  if (!rootPath) {
+    rootPath = getProjectRoot();
+  }
+  const isNextJSProject = existsSync(resolve(rootPath, "next.config.js"));
+  if (!isNextJSProject) {
+    throw new Error(
+      "Not a Next.js project. Can't locate a NextJS app router directory."
+    );
+  }
+  const topLevelAppDir = resolve(rootPath, "app");
+  if (existsSync(topLevelAppDir)) {
+    return topLevelAppDir;
+  }
+  const srcLevelAppDir = resolve(rootPath, "src", "app");
+  if (existsSync(srcLevelAppDir)) {
+    return srcLevelAppDir;
+  }
+  let foundPagesDir: string;
+  const topLevelPagesDir = resolve(rootPath, "app");
+  if (existsSync(topLevelPagesDir)) {
+    foundPagesDir = topLevelPagesDir;
+  }
+  const srcLevelPagesDir = resolve(rootPath, "src", "app");
+  if (existsSync(srcLevelPagesDir)) {
+    foundPagesDir = srcLevelPagesDir;
+  }
+  if (foundPagesDir) {
+    throw new Error(
+      "You must use the new NextJS app router directory structure. See https://nextjs.org/docs"
+    );
+  }
+  throw new Error(
+    "Can't locate a NextJS app or pages directory. Are you sure this is a valid NextJS project?"
+  );
+};
 
 export const getParentLayouts = (
   routeFile: string,
@@ -70,51 +125,17 @@ export const getParentLayouts = (
   );
 };
 
-export const getSegments = async (): Promise<Array<Types.CollectorSegment>> => {
-  const appDir = getAppDir();
-  const pageSegments = (await glob(`${appDir}/**/page.{js,ts,jsx,tsx}`)).map(
-    (pageFile) => ({
-      name: removeExt(pageFile).replace(appDir, "") || "/page",
-      entries: ["page", "template", "loading", ...getParentLayouts(pageFile)]
-        .map((entryFile) => {
-          return validExts
-            .map((ext) => resolve(dirname(pageFile), `${entryFile}.${ext}`))
-            .find(existsSync);
-        })
-        .filter((e) => e),
-      files: [],
-    })
-  );
-
-  const notFoundSegments = (
-    await glob(`${appDir}/**/not-found.{js,ts,jsx,tsx}`)
-  ).map((notFoundFile) => ({
-    name: removeExt(notFoundFile).replace(appDir, "") || "/not-found",
-    entries: [notFoundFile],
-    files: [],
-  }));
-
-  const errorSegments = (
-    await glob(`${appDir}/**/{error,global-error}.{js,ts,jsx,tsx}`)
-  )
-    .map(removeExt)
-    .filter((errorFileWithoutExt, i, filesWithoutExt) => {
-      const hasGlobalError =
-        filesWithoutExt.indexOf(resolve(appDir, "global-error")) !== -1;
-      const isRootErrorFile = errorFileWithoutExt === resolve(appDir, "error");
-      const shouldRemove = hasGlobalError && isRootErrorFile;
-
-      return !shouldRemove;
-    })
-    .map(withCorrectExt)
-    .map((errorFile) => ({
-      name: removeExt(errorFile).replace(appDir, "") || "/error",
-      entries:
-        removeExt(basename(errorFile)) === "global-error"
-          ? [errorFile]
-          : [errorFile, ...getParentLayouts(errorFile)],
-      files: [],
-    }));
-
-  return [...pageSegments, ...notFoundSegments, ...errorSegments];
+export const resolveImport = (filePath: string, importPath: string) => {
+  const projectRoot = getProjectRoot();
+  const tsconfig = (() => {
+    try {
+      return require(resolve(projectRoot, "tsconfig.json"));
+    } catch (err) {
+      return undefined;
+    }
+  })();
+  return resolveAliasedImport(getProjectRoot(), filePath, importPath, {
+    ...(tsconfig?.compilerOptions?.paths || {}),
+    ["*"]: ["node_modules/*"],
+  });
 };

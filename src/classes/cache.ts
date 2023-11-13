@@ -1,159 +1,261 @@
-import * as Types from "../types";
-import * as Utils from "../utils";
+import { existsSync, readFileSync } from "fs";
 import { get, set } from "lodash";
-import jscodeshift, { Collection } from "jscodeshift";
+import jscodeshift from "jscodeshift";
+import type * as Types from "../types";
+import * as parser from "@babel/parser";
+
+const CACHE_PATH_DELIMITER = ".0BslO9.";
+
+type THistory = Pick<
+  Cache,
+  "_unsafeRegisters" | "_unsafeCache" | "_unsafeMacroName"
+>;
 
 class Cache {
-  private _history: Array<any> = [];
-  private _unsafeCache: any = {};
-  private _unsafeMacroName: string;
+  public _unsafeRegisters: Array<Array<string>> = [];
+  public _unsafeCache: any = {};
+  public _unsafeMacroName: string;
+  public _unsafeHistory: Array<THistory> = [];
 
-  constructor() {}
+  public getHistory = () => {
+    return this._unsafeHistory.map((history) => new Cache(history));
+  };
 
-  private _getMacroName = () => {
+  constructor(cacheHistory?: THistory) {
+    if (cacheHistory) {
+      Object.keys(cacheHistory).forEach((storeKey) => {
+        this[storeKey] = cacheHistory[storeKey];
+      });
+    }
+  }
+
+  private getParsedBabelPath = () => this._macroPath(["parsed_babel"]);
+
+  private getParsedJscodeshiftPath = () =>
+    this._macroPath(["parsed_jscodeshift"]);
+
+  public parseBabel = (filePath: string): Types.ParsedBabel => {
+    if (!existsSync(filePath)) {
+      throw new Error(`Cannot parse ${filePath} because it does not exist.`);
+    }
+
+    const cachePath = this.getParsedBabelPath();
+    const parseCached = this.get(cachePath);
+    if (parseCached[filePath]) {
+      return parseCached[filePath];
+    }
+
+    const sourceCode = readFileSync(filePath, "utf8");
+    const babelOptions: Parameters<typeof parser.parse>[1] = {
+      sourceType: "module",
+      plugins: ["jsx"],
+    };
+    if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) {
+      babelOptions.plugins.push("typescript");
+    }
+
+    const returnValue: Types.ParsedBabel = {
+      ast: parser.parse(sourceCode, babelOptions),
+      sourceCode,
+      filePath,
+    };
+
+    this.merge<Types.ParsedBabel>(cachePath, {
+      [filePath]: returnValue,
+    });
+
+    return returnValue;
+  };
+
+  public parseJscodeshift = (filePath: string): Types.ParsedJscodeshift => {
+    if (!existsSync(filePath)) {
+      throw new Error(`Cannot parse ${filePath} because it does not exist.`);
+    }
+
+    const cachePath = this.getParsedJscodeshiftPath();
+    const parseCached = this.get(cachePath);
+    if (parseCached[filePath]) {
+      return parseCached[filePath];
+    }
+
+    const sourceCode = readFileSync(filePath, "utf8");
+    const jscodeshiftCollection = jscodeshift.withParser("tsx")(sourceCode);
+
+    const value: Types.ParsedJscodeshift = {
+      collection: jscodeshiftCollection,
+      sourceCode,
+      filePath,
+    };
+
+    this.merge<Types.ParsedJscodeshift>(cachePath, {
+      [filePath]: value,
+    });
+
+    return value;
+  };
+
+  private _validatePath = (path: any) => {
+    if (!Array.isArray(path)) {
+      throw new Error(`Cache path must be an array.`);
+    }
+    if (path.some((subpath) => typeof subpath !== "string")) {
+      throw new Error(`Cache path must be an array of strings.`);
+    }
+  };
+
+  public getMacroName = () => {
     if (typeof this._unsafeMacroName === "undefined") {
       throw new Error(`Cannot set cache without a macro name.`);
     }
     return this._unsafeMacroName;
   };
 
-  private _setCache = (path: Array<string>, value: any) => {
-    const macroName = this._getMacroName();
-    set(this._unsafeCache, [macroName, ...path], value);
+  private _macroPath = (path: Array<string>) => {
+    this._validatePath(path);
+    return [this.getMacroName(), ...path];
   };
 
-  private _getCache = (path: Array<string>) => {
-    const macroName = this._getMacroName();
-    return get(this._unsafeCache, [macroName, ...path]);
+  private _withMacroRead = <TValue extends any>(
+    accessPath: any,
+    doRead: (cachePath: Array<string>) => TValue
+  ) => {
+    this._validatePath(accessPath);
+    const cachePath = this._macroPath(accessPath);
+    this._validateReadAccess(cachePath);
+    return doRead(cachePath);
   };
 
-  public open = (
-    macroName: string,
-    segments: Array<Types.CollectorSegment> = []
-  ): void => {
-    this._unsafeMacroName = macroName;
-    this._setCache([], {});
-    segments.forEach((segment) => {
-      this._setCache(["segments", segment.name], segment);
-    });
+  private _withMacroWrite = (
+    accessPath: any,
+    doWrite: (cachePath: Array<string>) => void
+  ) => {
+    this._validatePath(accessPath);
+    const cachePath = this._macroPath(accessPath);
+    this._validateWriteAccess(cachePath);
+    return doWrite(cachePath);
   };
 
-  public close = (): void => {
-    this._history.unshift(this._unsafeCache);
-    this._unsafeCache = {};
-    this._unsafeMacroName = undefined;
-    return this._history[0];
-  };
-
-  public getHistory = (): Array<any> => {
-    return this._history;
-  };
-
-  public pushError = (
-    message: string,
-    filePath: string,
-    astPath: jscodeshift.ASTPath<any>
-  ): void => {
-    const errors = this._getCache(["errors"]);
-    if (typeof errors === "undefined") {
-      this._setCache(["errors"], []);
-    }
-    errors.push(
-      Utils.buildError(this._getMacroName(), filePath, astPath, message)
+  private _validateReadAccess = (pathToAccess: Array<string>) => {
+    this._validatePath(pathToAccess);
+    const isValid = this._unsafeRegisters.some((registeredPath) =>
+      registeredPath
+        .join(CACHE_PATH_DELIMITER)
+        .startsWith(pathToAccess.join(CACHE_PATH_DELIMITER))
     );
+    if (!isValid) {
+      throw new Error(`Nothing exists in the cache at path: ${pathToAccess}`);
+    }
   };
 
-  public getErrors = (): Array<string> => {
-    return this._getCache(["errors"]) || [];
+  private _validateWriteAccess = (pathToMutate: Array<string>) => {
+    this._validatePath(pathToMutate);
+    const isValid = this._unsafeRegisters.some(
+      (registeredPath) =>
+        registeredPath.join(CACHE_PATH_DELIMITER) ===
+        pathToMutate.join(CACHE_PATH_DELIMITER)
+    );
+    if (!isValid) {
+      throw new Error(`Can't mutate unregistered path: ${pathToMutate}`);
+    }
   };
 
-  public getSegments = (): Array<Types.CollectorSegment> => {
-    return Object.values(this._getCache(["segments"]) || {});
-  };
-
-  public getSegment = (segmentName: string): Types.CollectorSegment => {
-    return this._getCache(["segments", segmentName]);
-  };
-
-  public pushSegmentData = (segmentName: string, data: any): Array<any> => {
-    try {
-      JSON.stringify(data);
-    } catch (err) {
+  public register = (pathToRegister: any, initialData: any = null) => {
+    this._validatePath(pathToRegister);
+    const pathToRegisterWithMacro = [this.getMacroName(), ...pathToRegister];
+    const containsDelimiter = pathToRegisterWithMacro.some((subpath) =>
+      subpath.includes(CACHE_PATH_DELIMITER)
+    );
+    if (containsDelimiter) {
       throw new Error(
-        `Cannot push data to segment ${segmentName} because it is not JSON serializable.`
+        `Cannot use delimiter "${CACHE_PATH_DELIMITER}" in registered subpaths: ${pathToRegisterWithMacro}`
       );
     }
-    if (typeof this._getCache(["data"]) === "undefined") {
-      this._setCache(["data"], {});
+    const foundRegisteredPath = this._unsafeRegisters.find((registeredPath) =>
+      pathToRegisterWithMacro
+        .join(CACHE_PATH_DELIMITER)
+        .startsWith(registeredPath.join(CACHE_PATH_DELIMITER))
+    );
+    if (foundRegisteredPath) {
+      throw new Error(
+        `A cache register already exists at: ${foundRegisteredPath}`
+      );
     }
-    console.log(this._getCache(["data", segmentName]));
-    const dataset = this._getCache(["data", segmentName]) || [];
-    if (!dataset.length) {
-      this._setCache(["data", segmentName], dataset);
-    }
-    dataset.push(data);
-
-    return dataset;
+    this._unsafeRegisters.push(pathToRegisterWithMacro);
+    set(this._unsafeCache, pathToRegisterWithMacro, initialData);
   };
 
-  public pushData = (data: any): Array<any> => {
-    try {
-      JSON.stringify(data);
-    } catch (err) {
-      throw new Error(`Cannot push data because it is not JSON serializable.`);
-    }
-    const dataset = this._getCache(["global-data"]) || [];
-    if (!dataset.length) {
-      this._setCache(["global-data"], dataset);
-    }
-    dataset.push(data);
-    return data;
+  public set = (path: any, value: any) =>
+    this._withMacroWrite(path, (cachePath) =>
+      set(this._unsafeCache, cachePath, value)
+    );
+
+  public push = (path: any, value: any) =>
+    this._withMacroWrite(path, (cachePath) => {
+      const arr = get(this._unsafeCache, cachePath) || [];
+      if (!Array.isArray(arr)) {
+        throw new Error(
+          `Cannot push to a non array at cache.${cachePath.join(".")}`
+        );
+      }
+
+      arr.push(value);
+      set(this._unsafeCache, cachePath, arr);
+    });
+
+  public unshift = <Value extends any = any>(path: any, value: Value) =>
+    this._withMacroWrite(path, (cachePath) => {
+      const arr = get(this._unsafeCache, cachePath) || [];
+      if (!Array.isArray(arr)) {
+        throw new Error(
+          `Cannot unshift to a non array at cache.${cachePath.join(".")}`
+        );
+      }
+
+      arr.unshift(value);
+      set(this._unsafeCache, cachePath, arr);
+    });
+
+  public merge = <TValue extends any>(
+    path: any,
+    value: Record<string, TValue>
+  ) =>
+    this._withMacroWrite(path, (cachePath) => {
+      const mapObj = get(this._unsafeCache, cachePath) || {};
+      const isMap =
+        mapObj && !Array.isArray(mapObj) && typeof mapObj === "object";
+      if (!isMap) {
+        throw new Error(
+          `Cannot merge with a non-map at cache.${cachePath.join(".")}`
+        );
+      }
+      set(this._unsafeCache, cachePath, {
+        mapObj,
+        ...value,
+      });
+    });
+
+  public get = <TValue extends any>(accessPath: any) =>
+    this._withMacroRead<TValue>(accessPath, (cachePath) => {
+      return get(this._unsafeCache, cachePath);
+    });
+
+  public _dangerouslyStartMacro = (macroName: string) => {
+    this._unsafeMacroName = macroName;
+    this._unsafeRegisters = [];
+    this._unsafeCache = {};
+    this.register(this.getParsedBabelPath(), {});
+    this.register(this.getParsedJscodeshiftPath(), {});
   };
 
-  public addRewrite = (
-    filePath: string,
-    modifiedCode: string | Collection<any>
-  ): void => {
-    const rewrites = this._getCache(["rewrites"]) || {};
-    if (!Object.keys(rewrites).length) {
-      this._setCache(["rewrites"], rewrites);
-    }
-    if (typeof modifiedCode === "string") {
-      rewrites[filePath] = modifiedCode;
-      return;
-    }
-    rewrites[filePath] = modifiedCode.toSource();
-  };
-
-  public getRewrites = (): Record<string, string> => {
-    return this._getCache(["rewrites"]) || {};
-  };
-
-  public getSegmentData = (): Record<string, Array<any>> => {
-    return this._getCache(["data"]) || {};
-  };
-
-  public getData = (): Array<any> => {
-    return this._getCache(["global-data"]) || [];
-  };
-
-  public getCollectedFile = (filePath: string): Types.CollectorFile => {
-    return this._getCache(["parsed", filePath]);
-  };
-
-  public addCollectedFile = (
-    segmentName: string,
-    collectionFile: Types.CollectorFile
-  ): void => {
-    const segment = this._getCache([
-      "segments",
-      segmentName,
-    ]) as Types.CollectorSegment;
-    if (this._getCache(["segments", segmentName]) === undefined) {
-      throw new Error(`Segment ${segmentName} does not exist in cache yet.`);
-    }
-    segment.files.push(collectionFile);
-    this._setCache(["parsed", collectionFile.filePath], collectionFile);
+  public _dangerouslyEndMacro = () => {
+    this._unsafeHistory.unshift({
+      _unsafeCache: this._unsafeCache,
+      _unsafeRegisters: this._unsafeRegisters,
+      _unsafeMacroName: this._unsafeMacroName,
+    });
+    this._unsafeCache = {};
+    this._unsafeRegisters = [];
+    this._unsafeMacroName = undefined;
   };
 }
 

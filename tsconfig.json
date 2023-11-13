@@ -1,15 +1,16 @@
 {
   "compilerOptions": {
     "outDir": "./dist",
-    "module": "esnext",
-    "esModuleInterop": true,
+    "target": "ESNext",
+    "module": "commonjs",
+    "moduleResolution": "node",
     "sourceMap": true,
-    "target": "es2022",
     "declaration": true,
-    "downlevelIteration": true,
     "preserveWatchOutput": true,
-    "allowUnusedLabels": true
+    "allowUnusedLabels": true,
+    "allowJs": true,
+    "esModuleInterop": true
   },
-  "include": ["./src/**/*.ts", "./src/**/*.json"],
+  "include": ["./src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

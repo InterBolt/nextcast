@@ -1,66 +1,147 @@
-import * as fs from "fs";
-import { dirname, resolve } from "path";
-import { default as jscodeshift } from "jscodeshift";
-import * as Utils from "./utils";
+import { resolve } from "path";
+import { mkdirSync, existsSync } from "fs";
 import type * as Types from "./types";
 import * as Classes from "./classes";
-import appRootPath from "app-root-path";
+import * as Utils from "./utils/index";
+import { Collection, default as jscodeshift } from "jscodeshift";
 
-const withDefaultOptions = (options: Types.MacroOptions) => {
-  if (!options.dataPath) {
-    options.dataPath = resolve(
-      appRootPath.path,
-      ".macropack",
-      `${options.name}.json`
-    );
-  }
-  if (!options.dataPath.endsWith(".json")) {
-    throw new Error(`outFile must be a .json file`);
+export const buildOptions = <BuiltOptions extends Types.MacroOptions>(
+  options: BuiltOptions
+): BuiltOptions => {
+  const baseDir = resolve(Utils.nextjs.getProjectRoot(), ".macropack");
+  if (!existsSync(baseDir)) {
+    mkdirSync(baseDir);
   }
 
-  const outDir = dirname(options.dataPath);
-  if (!fs.existsSync(outDir)) {
-    fs.mkdirSync(outDir);
+  const macroDir = resolve(baseDir, options.name);
+  if (!existsSync(macroDir)) {
+    mkdirSync(macroDir);
   }
+
+  options.dataDir = macroDir;
+  options.rewrite = !!options.rewrite || false;
+
+  return options;
 };
 
-const build = async <MacroConfig extends any>(
-  options: Types.MacroOptions<MacroConfig>,
-  suppliedFs: Utils.Types.InputFileSystem = fs
+export const macropackNextjs = async <MacroConfig extends any>(
+  suppliedOptions: Types.MacroOptions<MacroConfig>
 ) => {
-  withDefaultOptions(options);
+  try {
+    // setup options with defaults
+    buildOptions(suppliedOptions);
+    const options = suppliedOptions;
 
-  const segments = await Utils.nextjs.getSegments();
-  const cache = new Classes.cache();
-  const ctx: Types.MacroContext = { cache, jscodeshift, options };
+    // setup cache and start the macro
+    const cache = new Classes.cache();
+    cache._dangerouslyStartMacro(options.name);
 
-  cache.open(options.name, segments);
+    // setup setup errors, traversals, and pages
+    const errors = new Classes.errors(cache);
+    const _unstable_traversals = new Classes.traversals(cache);
+    const app = new Classes.app(cache, { _unstable_traversals });
 
-  Utils.parse(ctx.cache);
+    // will find and map all the files associated with each route (aka segment)
+    // by following the nextjs conventions for app router files.
+    await app.load();
 
-  await ctx.options.macro.collector?.(ctx);
-  await ctx.options.macro.rewriter?.(ctx);
+    const projectRoot = Utils.nextjs.getProjectRoot();
+    const tsconfig = (() => {
+      try {
+        return require(resolve(projectRoot, "tsconfig.json"));
+      } catch (err) {
+        return undefined;
+      }
+    })();
 
-  const rewrites = cache.getRewrites();
-  const errors = cache.getErrors();
-  const data = {
-    segments: cache.getSegmentData(),
-    shared: cache.getData(),
-  };
+    // context that will remain the same between macro phases
+    const ContextShared = {
+      _unstable_traversals,
+      tsconfig,
+      projectRoot,
+      getCacheHistory: cache.getHistory,
+      nextjsUtils: Utils.nextjs,
+      getCollection: app.getCollection,
+      getRoutes: app.getRoutes,
+      getErrors: errors.get,
+      traverseBabel: _unstable_traversals.babel,
+      collect: app.collect,
+      macroConfig: options.macroConfig,
+      options,
+    };
 
-  const frozenCache = cache.close();
+    // run the collector, a function that can "collect" information about
+    // the files in the project. This is the first phase of the macro.
+    await options.macro.collector?.({
+      ...ContextShared,
+      resolveImport: Utils.nextjs.resolveImport,
+      getResolvedImports: _unstable_traversals.getResolvedImports,
+      parse: cache.parseBabel,
+      reportError: errors.createBabelReporter("collector"),
+    });
 
-  if (errors.length) {
-    throw new Error(errors.join("\n"));
+    // run the reducer, a function that can "reduce" the information collected in
+    // the previous step.
+    const reduced = options.macro.reducer ? (await options.macro.reducer({
+      ...ContextShared,
+      collection: JSON.parse(JSON.stringify(app.getCollection())),
+      parse: cache.parseBabel,
+      reportError: errors.createBabelReporter("reducer"),
+    })) : JSON.parse(JSON.stringify(app.getCollection()));
+
+    await options.macro.rewriter?.({
+      ...ContextShared,
+      _unstable_getCodemods: (collection: Collection) =>
+        new Classes.codemods(collection),
+      jscodeshift,
+      reduced: JSON.parse(JSON.stringify(reduced)),
+      collection: JSON.parse(JSON.stringify(app.getCollection())),
+      parse: cache.parseJscodeshift,
+      reportError: errors.createJscodeshiftReporter("rewriter"),
+    });
+
+    const rewriterErrors = errors.get();
+    if (rewriterErrors.length > 0) {
+      errors.log();
+      throw new Error(
+        `Errors found in macro ${options.name}. See above for details.`
+      );
+    }
+
+    app.stashCollection(options.dataDir);
+    app.stashReducedCollection(options.dataDir, reduced);
+    app.stashErrors(options.dataDir, errors.get() as any); // so only when no errors exist, can we commit rewrites, for safety reasons
+    app.stashRewrites(options.dataDir);
+
+    if (options.rewrite === true) {
+      // we only throw if there are errors in the rewriter phase
+      // otherwise, we just log and pass them to the potential next macro
+      const foundErrors = errors.get();
+      if (foundErrors.length > 0) {
+        errors.log();
+        throw new Error(
+          `Errors found in macro ${options.name}. See above for details.`
+        );
+      }
+      app.executeRewrites(options.dataDir);
+    }
+
+    const resolveData = {
+      cacheHistory: cache.getHistory(),
+      errors: errors.get(),
+      reduced: JSON.parse(JSON.stringify(reduced)),
+      collection: JSON.parse(JSON.stringify(app.getCollection())),
+      pages: app.getRoutes(),
+      rewrites: app.getRewrites(),
+    };
+
+    // end the macro so that its included in the cache history and
+    // so that we can't do anything stupid to our state after this.
+    cache._dangerouslyEndMacro();
+
+    return resolveData;
+  } catch (err) {
+    console.error(err)
+    process.exit(1)
   }
-
-  // Utils.rewrite(rewrites, suppliedFs);
-  fs.writeFileSync(options.dataPath, JSON.stringify(data, null, 2));
-
-  return {
-    cache: frozenCache,
-    data,
-  };
 };
-
-export default build;

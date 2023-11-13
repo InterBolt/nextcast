@@ -1,118 +1,72 @@
-import { existsSync } from "fs";
-import { Collector, MacroContext } from "../../types";
-import resolvers from "../../utils/resolvers";
-import { get } from "lodash";
-import {
-  ASTPath,
-  types,
-  ImportDefaultSpecifier,
-  ImportSpecifier,
-  ImportNamespaceSpecifier,
-} from "jscodeshift";
-import { Config } from ".";
+import { NextJSCollector } from "../../types";
+import { Config } from "./index";
 
-const findDefaultImportAssignmentName = (
-  specifiers: Array<
-    ImportDefaultSpecifier | ImportSpecifier | ImportNamespaceSpecifier
-  >
-) => {
-  const v = specifiers.find((s) => {
-    const isCleanDefaultImport = get(s, "type") === "ImportDefaultSpecifier";
-    const isAsDefaultImport = get(s, ["imported", "name"]) === "default";
-    return isAsDefaultImport || isCleanDefaultImport;
-  });
-
-  return v.local.name;
-};
-
-const findNamedImportAssignmentName = (
-  specifiers: Array<
-    ImportDefaultSpecifier | ImportSpecifier | ImportNamespaceSpecifier
-  >
-) => {
-  const v = specifiers.find((s) => get(s, "type") === "ImportSpecifier");
-  return v.local.name;
-};
-
-const collector: Collector<Config> = async (ctx: MacroContext<Config>) => {
+const collector: NextJSCollector<Config> = async (ctx) => {
   const {
-    options: {
-      macroConfig: {
-        exportIdentifier = "default",
-        path: fnPath,
-        allowedArgTypes = null,
-      },
+    macroConfig: {
+      exportIdentifier = "default",
+      path: fnPath,
+      allowedArgTypes = null,
     },
-    cache,
-    jscodeshift,
+    getRoutes,
+    traverseBabel,
+    getResolvedImports,
+    collect,
+    reportError,
   } = ctx;
 
-  if (!existsSync(fnPath)) {
-    throw new Error(`Function path ${fnPath} does not exist`);
-  }
+  const formattedAllowedArgTypes = (
+    Array.isArray(allowedArgTypes) ? allowedArgTypes : [allowedArgTypes]
+  ).filter((t) => typeof t === "string");
 
-  cache.getSegments().forEach((segment) => {
-    const { files, name: segmentName } = segment;
+  getRoutes().forEach(({ files, name: routeName }) => {
+    files.forEach((filePath) => {
+      const foundHookImport = getResolvedImports(filePath).find(
+        (resolvedImport) =>
+          resolvedImport.filePath === fnPath &&
+          resolvedImport.exportName === exportIdentifier
+      );
 
-    files.forEach((file) => {
-      const { astCollection, filePath } = file;
-
-      const found = resolvers
-        .topLevelImports(filePath, astCollection)
-        .find(([importPath]) => importPath === fnPath);
-
-      if (!found) {
+      if (!foundHookImport) {
         return;
       }
 
-      const [, astNodeRepresentingImport] = found;
-      const fnName =
-        exportIdentifier === "default"
-          ? findDefaultImportAssignmentName(
-              astNodeRepresentingImport.node.specifiers
-            )
-          : findNamedImportAssignmentName(
-              astNodeRepresentingImport.node.specifiers
-            );
+      const { assignee } = foundHookImport;
+      if (!assignee) {
+        return;
+      }
 
-      astCollection
-        .find(jscodeshift.CallExpression)
-        .forEach((astPath: ASTPath<any>) => {
-          if (astPath.node.callee.name !== fnName) {
+      traverseBabel(filePath, {
+        CallExpression: (path) => {
+          const isAssignee =
+            path.node.callee.type === "Identifier" &&
+            path.node.callee.name === assignee;
+          if (!isAssignee) {
             return;
           }
-
-          if (allowedArgTypes) {
-            const foundArgTypes = astPath.node.arguments.map(
-              (arg: any) => arg.type
-            ) as Array<typeof types.namedTypes>;
-
-            const notPassingArgRestrictions = foundArgTypes.some(
-              (argType) => !allowedArgTypes.includes(argType)
+          path.node.arguments.forEach((arg) => {
+            const isAllowed = formattedAllowedArgTypes.some(
+              (allowedArgType) => arg.type === allowedArgType
             );
-
-            if (notPassingArgRestrictions) {
-              cache.pushError(
-                `expected arg types: [${allowedArgTypes.join(
-                  ", "
-                )}]\nfound: [${foundArgTypes.join(", ")}]`,
-                filePath,
-                astPath
+            if (!isAllowed) {
+              reportError(
+                `arg type "${arg.type}" is not allowed for uses of: ${fnPath}[${exportIdentifier}]`,
+                path.node,
+                filePath
               );
-
-              return;
             }
-          }
+          });
 
-          console.log(
-            cache.pushSegmentData(
-              segmentName,
-              astPath.node.arguments.map(
-                (arg: any) => arg.value || jscodeshift(arg).toSource()
-              )
-            )
-          );
-        });
+          const argStrings: Array<string> = path.node.arguments
+            .map((arg: any) => arg?.value || "")
+            .filter((arg: any) => typeof arg === "string");
+
+          collect({
+            args: argStrings,
+            routeName,
+          });
+        },
+      });
     });
   });
 };

@@ -1,7 +1,7 @@
-import { MacroContext, Rewriter } from "../../types";
+import { NextJSRewriter, NextJSRewriterContext } from "../../types";
 import { Config } from ".";
 
-const rewriter: Rewriter<Config> = async (ctx: MacroContext<Config>) => {
+const rewriter: NextJSRewriter<NextJSRewriterContext<Config>> = async (ctx) => {
   return;
 };
 
