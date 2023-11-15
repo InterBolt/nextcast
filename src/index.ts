@@ -1,3 +1,4 @@
-export * as macros from "./macros/index";
-export { default as withMacropack } from "./next/withMacropack";
-export type * from "./types";
+import next from "./next/index";
+
+export * as Micro from "./next/types";
+export const withMicropack = next;

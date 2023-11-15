@@ -22,7 +22,7 @@ class Codemods {
       .forEach((path) => {
         path.node.openingElement.attributes.push(
           jscodeshift.jsxAttribute(
-            jscodeshift.jsxIdentifier(attributeName),
+            jscodeshift.jsxIdentifier(attributeName.toLowerCase()),
             jscodeshift.stringLiteral(encodeURI(JSON.stringify(jsonData)))
           )
         );

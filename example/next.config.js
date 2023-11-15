@@ -1,19 +1,7 @@
-const { withMacropack, macros } = require("@interbolt/macropack");
+const { withMicropack } = require("@interbolt/micropack");
+const HookCalls = require("./micropacks/dist/HookCalls/index.js").default;
+
 const path = require("path");
-
-/** @type {import('@interbolt/macropack').macros.HookCalls.Config} */
-const hookCallsMacroConfig = {
-  path: path.resolve(__dirname, "src", "code", "useCloudflareData.ts"),
-  exportIdentifier: "default",
-  allowedArgTypes: ["StringLiteral"],
-};
-
-/** @type {import('@interbolt/macropack').WithMacropackOptions} */
-const hookCallsMacro = {
-  macro: macros.HookCalls,
-  macroConfig: hookCallsMacroConfig,
-  name: "useCloudflareData",
-};
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -21,4 +9,15 @@ const nextConfig = {
   trailingSlash: true,
 };
 
-module.exports = withMacropack([hookCallsMacro])(nextConfig);
+module.exports = withMicropack([
+  {
+    micro: new HookCalls(
+      {
+        path: path.resolve(__dirname, "src", "code", "useCloudflareData.ts"),
+        exportIdentifier: "default",
+        allowedArgTypes: ["StringLiteral"],
+      },
+      "useCloudflareData"
+    ),
+  },
+])(nextConfig);

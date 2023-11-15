@@ -8,10 +8,11 @@ const DynamicComponent = dynamic(() => import("./DynamicComponent"), {
   ssr: false,
 });
 
-const val = "asdf";
+const val = "asfdf";
 
 const AboutPage = () => {
-  const props = useBS("asdfdsf");
+  const props = useBS(val);
+  
   return (
     <main className="flex flex-col items-center justify-between min-h-screen p-24">
       <OtherComponent />

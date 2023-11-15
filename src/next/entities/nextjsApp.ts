@@ -1,56 +1,53 @@
 import type * as Classes from "./index";
-import * as Utils from "../utils/index";
+import * as Utils from "../utils";
 import type * as Types from "../types";
 import { basename, resolve, dirname } from "path";
-import { existsSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { glob } from "glob";
 import type { Collection } from "jscodeshift";
+import traversals from "./traversals";
+import { IError } from "./errors";
 
 export interface ICollectionItem {
   payload: Types.JSONValue;
   timestamp: number;
 }
 
-class App {
-  private cache: Classes.cache;
+class NextJSApp {
+  private store: Classes.store;
   private traversals: Classes.traversals;
 
-  constructor(
-    cache: Classes.cache,
-    { _unstable_traversals }: { _unstable_traversals: Classes.traversals }
-  ) {
-    this.traversals = _unstable_traversals;
-    this.cache = cache;
+  constructor(store: Classes.store, traversals: Classes.traversals) {
+    this.traversals = traversals;
+    this.store = store;
   }
 
   private overwriteProtection = (path: string) => {
-    if (!path.startsWith(Utils.nextjs.getProjectRoot())) {
+    if (!path.startsWith(Utils.getProjectRoot())) {
       throw new Error(
         `Cannot overwrite ${path} because it is not in the project root.`
       );
     }
   };
 
-  private getRouteRewritesPath = (routeName: string) => {
-    return ["route_rewrites", routeName] as const;
-  };
+  private _pathRouteRewriteHistory = (routeName: string) =>
+    ["rewrite_history", routeName] as const;
 
-  private getCommittingRewritesPath = () => {
-    return ["committing_rewrites"] as const;
-  };
+  private _pathRewritesToCommit = () => ["rewrites_to_commit"] as const;
 
-  private getRouteCollectionPath = (routeName: string) => {
-    return ["route_collections", routeName] as const;
-  };
+  private _pathRouteCollection = (routeName: string) =>
+    ["route_collections", routeName] as const;
 
-  private getRoutePath = (routeName?: string) => {
+  private _pathAllRoutes = (routeName?: string) => {
     if (typeof routeName === "string") {
       return ["routes", routeName] as const;
     }
     return ["routes"] as const;
   };
 
-  private getRouteTypeCollectionPath = () => {
+  private _pathRoute = (routeName: string) => ["routes", routeName] as const;
+
+  private _pathAppCollection = () => {
     return ["route_type_collection"] as const;
   };
 
@@ -70,11 +67,11 @@ class App {
           ? codeOrCollection
           : codeOrCollection.toSource();
 
-      this.cache.merge<string>(this.getCommittingRewritesPath(), {
+      this.store.writes.merge<string>(this._pathRewritesToCommit(), {
         [filePath]: code,
       });
 
-      this.cache.push(this.getRouteRewritesPath(routeName), {
+      this.store.writes.push(this._pathRouteRewriteHistory(routeName), {
         filePath,
         code,
       });
@@ -90,8 +87,8 @@ class App {
       );
     }
 
-    const cachePath = this.getRouteTypeCollectionPath();
-    const dataset = this.cache.get<Array<ICollectionItem>>(cachePath);
+    const cachePath = this._pathAppCollection();
+    const dataset = this.store.reads.get<Array<ICollectionItem>>(cachePath);
 
     if (!Array.isArray(dataset)) {
       throw new Error(`Cannot push data to route because it is not an array.`);
@@ -104,14 +101,14 @@ class App {
   };
 
   public getCollection = () =>
-    this.cache.get<Array<ICollectionItem>>(this.getRouteTypeCollectionPath()) ||
+    this.store.reads.get<Array<ICollectionItem>>(this._pathAppCollection()) ||
     [];
 
   public getRoutes = (
     providedNames?: Array<string> | string
-  ): Array<Types.Segment> => {
+  ): Array<Types.Route> => {
     return this.getRouteNames(providedNames).map((name) =>
-      this.cache.get<Types.Segment>(this.getRoutePath(name))
+      this.store.reads.get<Types.Route>(this._pathRoute(name))
     );
   };
 
@@ -123,10 +120,12 @@ class App {
       typeof providedNames === "string" ? [providedNames] : providedNames || [];
 
     if (!names.length) {
-      names = Object.keys(this.cache.get(this.getRoutePath()));
+      names = Object.keys(this.store.reads.get(this._pathAllRoutes()));
       usedFromCache = true;
     } else {
-      const existingName = Object.values(this.cache.get(this.getRoutePath()));
+      const existingName = Object.values(
+        this.store.reads.get(this._pathAllRoutes())
+      );
       const nonexistentNames = names.filter((name) => {
         return !existingName.includes(name);
       });
@@ -150,8 +149,9 @@ class App {
       );
     }
 
-    const cachePath = this.getRouteTypeCollectionPath();
-    const collection = this.cache.get<Array<ICollectionItem>>(cachePath) || [];
+    const cachePath = this._pathAppCollection();
+    const collection =
+      this.store.reads.get<Array<ICollectionItem>>(cachePath) || [];
 
     this.overwriteProtection(dataDir);
     writeFileSync(
@@ -177,7 +177,7 @@ class App {
     );
   };
 
-  public stashErrors = (dataDir: string, errors: Types.JSONValue) => {
+  public stashErrors = (dataDir: string, errors: Array<IError>) => {
     if (!existsSync(dataDir)) {
       throw new Error(
         `Cannot commit errors because ${dataDir} does not exist.`
@@ -185,6 +185,13 @@ class App {
     }
 
     this.overwriteProtection(dataDir);
+    const affectedFilePaths = errors.map((e) => e.info.file);
+    // add and remove a new line to each file to trigger a reload
+    affectedFilePaths.forEach((filePath) => {
+      const source = readFileSync(filePath, "utf8");
+      writeFileSync(filePath, `${source}\n`);
+      writeFileSync(filePath, source);
+    });
     writeFileSync(
       resolve(dataDir, `errors.json`),
       JSON.stringify(errors, null, 2)
@@ -192,8 +199,8 @@ class App {
   };
 
   public getRewrites = () => {
-    const cachePath = this.getCommittingRewritesPath();
-    return this.cache.get<Record<string, string>>(cachePath);
+    const cachePath = this._pathRewritesToCommit();
+    return this.store.reads.get<Record<string, string>>(cachePath);
   };
 
   public stashRewrites = (dataDir: string) => {
@@ -202,8 +209,8 @@ class App {
         `Cannot commit rewrites because ${dataDir} does not exist.`
       );
     }
-    const cachePath = this.getCommittingRewritesPath();
-    const rewriteMap = this.cache.get<Record<string, string>>(cachePath);
+    const cachePath = this._pathRewritesToCommit();
+    const rewriteMap = this.store.reads.get<Record<string, string>>(cachePath);
 
     this.overwriteProtection(dataDir);
     writeFileSync(
@@ -218,8 +225,8 @@ class App {
         `Cannot commit rewrites because ${dataDir} does not exist.`
       );
     }
-    const cachePath = this.getCommittingRewritesPath();
-    const rewriteMap = this.cache.get<Record<string, string>>(cachePath);
+    const cachePath = this._pathRewritesToCommit();
+    const rewriteMap = this.store.reads.get<Record<string, string>>(cachePath);
 
     Object.entries(rewriteMap).forEach(([filePath, code]) => {
       this.overwriteProtection(filePath);
@@ -227,20 +234,20 @@ class App {
     });
   };
 
-  public load = async () => {
-    const appDir = Utils.nextjs.getAppDir();
+  public loadRoutes = async () => {
+    const appDir = Utils.getAppDir();
 
     const pageRoutes = (await glob(`${appDir}/**/page.{js,ts,jsx,tsx}`)).map(
       (pageFile) => ({
-        name: Utils.nextjs.removeExt(pageFile).replace(appDir, "") || "/page",
+        name: Utils.removeExt(pageFile).replace(appDir, "") || "/page",
         entries: [
           "page",
           "template",
           "loading",
-          ...Utils.nextjs.getParentLayouts(pageFile),
+          ...Utils.getParentLayouts(pageFile),
         ]
           .map((entryFile) =>
-            Utils.nextjs.withCorrectExt(
+            Utils.withCorrectExt(
               resolve(dirname(pageFile), `${entryFile}.js`),
               null
             )
@@ -253,9 +260,7 @@ class App {
     const notFoundRoutes = (
       await glob(`${appDir}/**/not-found.{js,ts,jsx,tsx}`)
     ).map((notFoundFile) => ({
-      name:
-        Utils.nextjs.removeExt(notFoundFile).replace(appDir, "") ||
-        "/not-found",
+      name: Utils.removeExt(notFoundFile).replace(appDir, "") || "/not-found",
       entries: [notFoundFile],
       files: [],
     }));
@@ -263,7 +268,7 @@ class App {
     const errorRoutes = (
       await glob(`${appDir}/**/{error,global-error}.{js,ts,jsx,tsx}`)
     )
-      .map(Utils.nextjs.removeExt)
+      .map(Utils.removeExt)
       .filter((errorFileWithoutExt, _i, filesWithoutExt) => {
         const hasGlobalError =
           filesWithoutExt.indexOf(resolve(appDir, "global-error")) !== -1;
@@ -273,26 +278,29 @@ class App {
 
         return !shouldRemove;
       })
-      .map(Utils.nextjs.withCorrectExt)
+      .map(Utils.withCorrectExt)
       .map((errorFile) => ({
-        name: Utils.nextjs.removeExt(errorFile).replace(appDir, "") || "/error",
+        name: Utils.removeExt(errorFile).replace(appDir, "") || "/error",
         entries:
-          Utils.nextjs.removeExt(basename(errorFile)) === "global-error"
+          Utils.removeExt(basename(errorFile)) === "global-error"
             ? [errorFile]
-            : [errorFile, ...Utils.nextjs.getParentLayouts(errorFile)],
+            : [errorFile, ...Utils.getParentLayouts(errorFile)],
         files: [],
       }));
 
-    this.cache.register(this.getCommittingRewritesPath(), {});
-    this.cache.register(this.getRouteTypeCollectionPath(), []);
+    this.store.registerAccessPath(this._pathRewritesToCommit(), {});
+    this.store.registerAccessPath(this._pathAppCollection(), []);
     [...pageRoutes, ...notFoundRoutes, ...errorRoutes].forEach((route) => {
-      const routePath = this.getRoutePath(route.name);
-      this.cache.register(this.getRouteRewritesPath(route.name), []);
-      this.cache.register(this.getRouteCollectionPath(route.name), []);
-      this.cache.register(routePath, {
+      const routePath = this._pathRoute(route.name);
+      this.store.registerAccessPath(
+        this._pathRouteRewriteHistory(route.name),
+        []
+      );
+      this.store.registerAccessPath(this._pathRouteCollection(route.name), []);
+      this.store.registerAccessPath(routePath, {
         ...route,
         files: route.entries
-          .map((entry) => this.traversals.walkImports(entry))
+          .map((entry) => this.traversals.extractFilePaths(entry))
           .flat()
           .reduce(
             (unique, filePath) =>
@@ -304,4 +312,4 @@ class App {
   };
 }
 
-export default App;
+export default NextJSApp;
