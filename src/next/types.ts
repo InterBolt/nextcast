@@ -21,7 +21,7 @@ export type ProjectInfo = {
 
 export type SharedContext<
   Config extends Record<string, any> = any,
-  ProvidedOptions extends Options<any> = Options<Config>
+  ProvidedOptions extends Options = Options
 > = {
   options: ProvidedOptions;
   config: Config;
@@ -31,21 +31,23 @@ export type SharedContext<
   codemod: Classes.Traversals["codemod"];
   getDetailedImports: Classes.Traversals["getDetailedImports"];
   getRoutes: Classes.NextJsApp["getRoutes"];
-  getErrors: Classes.Errors["get"];
-  reportError: Classes.Errors["report"];
+  getErrors: Classes.Errors["getErrors"];
+  reportError: Classes.Errors["reportError"];
+  getWarnings: Classes.Errors["getWarnings"];
+  reportWarning: Classes.Errors["reportWarning"];
   collect: Classes.NextJsApp["collect"];
 };
 
 export type CollectorContext<
   Config extends Record<string, any> = any,
-  ProvidedOptions extends Options<any> = Options<Config>
+  ProvidedOptions extends Options = Options
 > = {
   getCollection: Classes.NextJsApp["getCollection"];
 } & SharedContext<Config, ProvidedOptions>;
 
 export type ReducerContext<
   Config extends Record<string, any> = any,
-  ProvidedOptions extends Options<any> = Options<Config>
+  ProvidedOptions extends Options = Options
 > = {
   collection: JSONValue;
 } & SharedContext<Config, ProvidedOptions>;
@@ -53,7 +55,7 @@ export type ReducerContext<
 export type RewriterContext<
   Config extends Record<string, any> = any,
   Reduced extends JSONValue = JSONValue,
-  ProvidedOptions extends Options<any> = Options<Config>
+  ProvidedOptions extends Options = Options
 > = {
   collection: JSONValue;
   data: Reduced;
@@ -91,8 +93,8 @@ export interface Definition<Config extends Record<string, any>> {
   rewriter?: Rewriter<Config>;
 }
 
-export type Options<Config extends Record<string, any> = any> = {
-  micro: Definition<Config>;
+export type Options = {
+  inputDir?: string;
   rewrite?: boolean;
   dataDir?: string;
 };

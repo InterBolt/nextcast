@@ -5,21 +5,22 @@
   "module": "./dist/index.js",
   "browser": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "engines": {
+    "yarn": "use npm!"
+  },
   "files": [
     "dist",
     "eslint"
   ],
   "scripts": {
-    "dev": "npx tsc -w -d",
-    "dev:package": "npx tsc -w -d",
-    "ci:package": "npx tsc",
-    "dev:build": "rimraf dist && run-p dev:package",
-    "ci:build": "rimraf dist && run-p ci:package",
-    "ci:test": "echo \"No tests yet\"",
-    "postinstall": "mv eslint ../eslint-plugin-micropack"
+    "dev:build": "rimraf dist && npx tsc -w -d",
+    "ci:build": "rimraf dist && npx tsc && npx rollup -c",
+    "ci:test": "echo \"No tests yet\""
   },
   "dependencies": {
     "@babel/parser": "^7.23.3",
+    "@babel/preset-env": "^7.23.3",
+    "@babel/preset-typescript": "^7.23.3",
     "@babel/traverse": "^7.23.3",
     "app-root-path": "^3.1.0",
     "colors": "^1.4.0",
@@ -29,13 +30,16 @@
     "lodash": "^4.17.21"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@types/babel__core": "^7.20.4",
     "@types/babel__traverse": "^7.20.4",
     "@types/common-tags": "^1.8.4",
+    "@types/eslint": "^8.44.7",
     "@types/jscodeshift": "^0.11.9",
     "@types/lodash": "^4.14.200",
     "@types/node": "^20",
-    "npm-run-all": "^4.1.5",
     "rimraf": "^5.0.5",
+    "rollup": "^4.4.1",
     "type-fest": "^4.7.1",
     "typescript": "^5.2.2"
   },

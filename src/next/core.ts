@@ -3,38 +3,42 @@ import { mkdirSync, existsSync } from "fs";
 import type * as Types from "./types";
 import * as Utils from "./utils";
 import * as Classes from "./entities/index";
+import constants from "./constants";
 
 export const buildOptions = <BuiltOptions extends Types.Options>(
+  name: string,
   options: BuiltOptions
 ): BuiltOptions => {
-  const baseDir = resolve(Utils.getProjectRoot(), ".micropack");
+  const baseDir = resolve(Utils.getProjectRoot(), `.${constants.name}`);
   if (!existsSync(baseDir)) {
     mkdirSync(baseDir);
   }
 
-  const microDir = resolve(baseDir, options.micro.name);
-  if (!existsSync(microDir)) {
-    mkdirSync(microDir);
+  const dataDir = resolve(baseDir, name);
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir);
   }
 
-  options.dataDir = microDir;
+  options.dataDir = dataDir;
   options.rewrite = !!options.rewrite || false;
+  options.inputDir = options.inputDir || "micropacks";
 
   return options;
 };
 
 const core = async <MicroConfig extends any>(
-  suppliedOptions: Types.Options<MicroConfig>,
+  micro: Types.Definition<MicroConfig>,
+  suppliedOptions: Types.Options,
   prevParseCache: Record<string, Types.ParsedBabel> = {}
 ) => {
   try {
     // setup options with defaults
-    buildOptions(suppliedOptions);
+    buildOptions(micro.name, suppliedOptions);
     const options = suppliedOptions;
 
     // setup cache and start the micro
     const store = new Classes.store();
-    store._dangerouslyStartMicro(options.micro.name, prevParseCache);
+    store._dangerouslyStartMicro(micro.name, prevParseCache);
 
     // setup setup errors, traversals, and pages
     const errors = new Classes.errors(store);
@@ -59,35 +63,37 @@ const core = async <MicroConfig extends any>(
         root,
         tsconfig,
       },
-      config: options.micro.config,
+      config: micro.config,
       options,
       parse: store.parse,
       traverse: traversals.traverse,
       codemod: traversals.codemod,
       getDetailedImports: traversals.getDetailedImports,
       getRoutes: nextjsApp.getRoutes,
-      getErrors: errors.get,
-      reportError: errors.report,
+      getErrors: errors.getErrors,
+      getWarnings: errors.getWarnings,
+      reportError: errors.reportError,
+      reportWarning: errors.reportWarning,
       collect: nextjsApp.collect,
     };
 
     // run the collector, a function that can "collect" information about
     // the files in the project. This is the first phase of the micro.
-    await options.micro.collector?.({
+    await micro.collector?.({
       ...ContextShared,
       getCollection: nextjsApp.getCollection,
     });
 
     // run the reducer, a function that can "reduce" the information collected in
     // the previous step.
-    const data = options.micro.reducer
-      ? await options.micro.reducer({
+    const data = micro.reducer
+      ? await micro.reducer({
           ...ContextShared,
           collection: JSON.parse(JSON.stringify(nextjsApp.getCollection())),
         })
       : JSON.parse(JSON.stringify(nextjsApp.getCollection()));
 
-    await options.micro.rewriter?.({
+    await micro.rewriter?.({
       ...ContextShared,
       data: JSON.parse(JSON.stringify(data)),
       collection: JSON.parse(JSON.stringify(nextjsApp.getCollection())),
@@ -95,17 +101,18 @@ const core = async <MicroConfig extends any>(
 
     nextjsApp.stashCollection(options.dataDir);
     nextjsApp.stashReducedCollection(options.dataDir, data);
-    nextjsApp.stashErrors(options.dataDir, errors.get() as any); // so only when no errors exist, can we commit rewrites, for safety reasons
+    nextjsApp.stashErrors(options.dataDir, errors.getErrors() as any);
+    nextjsApp.stashWarnings(options.dataDir, errors.getWarnings() as any);
     nextjsApp.stashRewrites(options.dataDir);
 
     if (options.rewrite === true) {
       // we only throw if there are errors in the rewriter phase
       // otherwise, we just log and pass them to the potential next micro
-      const foundErrors = errors.get();
+      const foundErrors = errors.getErrors();
       if (foundErrors.length > 0) {
         errors.log();
         throw new Error(
-          `Errors found in micro ${options.micro.name}. See above for details.`
+          `Errors found in micro ${micro.name}. See above for details.`
         );
       }
       nextjsApp.executeRewrites(options.dataDir);
@@ -115,7 +122,8 @@ const core = async <MicroConfig extends any>(
 
     const resolveData = {
       parseCache,
-      errors: errors.get(),
+      errors: errors.getErrors(),
+      warnings: errors.getWarnings(),
       reduced: JSON.parse(JSON.stringify(data)),
       collection: JSON.parse(JSON.stringify(nextjsApp.getCollection())),
       pages: nextjsApp.getRoutes(),

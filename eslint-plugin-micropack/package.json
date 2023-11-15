@@ -1,0 +1,13 @@
+{
+  "name": "@interbolt/eslint-plugin-micropack",
+  "version": "1.0.0-alpha.3",
+  "main": "./index.js",
+  "module": "./index.js",
+  "browser": "./index.js",
+  "engines": {
+    "yarn": "use npm!"
+  },
+  "files": [
+    "./index.js"
+  ]
+}

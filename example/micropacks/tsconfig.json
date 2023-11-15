@@ -1,14 +1,18 @@
 {
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./",
+    "outDir": "../.micropack/dist",
     "target": "ESNext",
     "module": "commonjs",
     "moduleResolution": "node",
-    "declaration": true,
     "allowJs": true,
     "esModuleInterop": true
   },
-  "include": ["./**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "./**/*.ts",
+    "./**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

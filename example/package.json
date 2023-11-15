@@ -10,11 +10,17 @@
     "compile:micropacks": "npx tsc -p ./micropacks/tsconfig.json"
   },
   "dependencies": {
+    "@interbolt/micropack": "file:..",
+    "glob": "^10.3.10",
+    "lodash": "^4.17.21",
     "next": "14.0.2",
     "react": "^18",
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@babel/core": "^7.23.3",
+    "@babel/preset-env": "^7.23.3",
+    "@babel/preset-typescript": "^7.23.3",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

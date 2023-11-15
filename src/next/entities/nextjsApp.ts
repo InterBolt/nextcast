@@ -5,8 +5,9 @@ import { basename, resolve, dirname } from "path";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { glob } from "glob";
 import type { Collection } from "jscodeshift";
-import traversals from "./traversals";
-import { IError } from "./errors";
+import constants from "../constants";
+import { IErrorOrWarning } from "./errors";
+import { isEqual, omit } from "lodash";
 
 export interface ICollectionItem {
   payload: Types.JSONValue;
@@ -155,7 +156,7 @@ class NextJSApp {
 
     this.overwriteProtection(dataDir);
     writeFileSync(
-      resolve(dataDir, `collection.json`),
+      resolve(dataDir, constants.collectionFileName),
       JSON.stringify(collection, null, 2)
     );
   };
@@ -172,31 +173,38 @@ class NextJSApp {
 
     this.overwriteProtection(dataDir);
     writeFileSync(
-      resolve(dataDir, `data.json`),
+      resolve(dataDir, constants.dataFileName),
       JSON.stringify(reduced, null, 2)
     );
   };
 
-  public stashErrors = (dataDir: string, errors: Array<IError>) => {
+  private stashErrorsOrWarnings = (
+    dataDir: string,
+    errorsOrWarnings: Array<IErrorOrWarning>,
+    level: "warning" | "error"
+  ) => {
     if (!existsSync(dataDir)) {
       throw new Error(
-        `Cannot commit errors because ${dataDir} does not exist.`
+        `Cannot commit ${level}s because ${dataDir} does not exist.`
       );
     }
 
     this.overwriteProtection(dataDir);
-    const affectedFilePaths = errors.map((e) => e.info.file);
-    // add and remove a new line to each file to trigger a reload
-    affectedFilePaths.forEach((filePath) => {
-      const source = readFileSync(filePath, "utf8");
-      writeFileSync(filePath, `${source}\n`);
-      writeFileSync(filePath, source);
-    });
-    writeFileSync(
-      resolve(dataDir, `errors.json`),
-      JSON.stringify(errors, null, 2)
+    const dataPath = resolve(
+      dataDir,
+      level === "warning"
+        ? constants.warningsFileName
+        : constants.errorsFileName
     );
+
+    writeFileSync(dataPath, JSON.stringify(errorsOrWarnings, null, 2));
   };
+
+  public stashErrors = (dataDir: string, errors: Array<IErrorOrWarning>) =>
+    this.stashErrorsOrWarnings(dataDir, errors, "error");
+
+  public stashWarnings = (dataDir: string, warnings: Array<IErrorOrWarning>) =>
+    this.stashErrorsOrWarnings(dataDir, warnings, "warning");
 
   public getRewrites = () => {
     const cachePath = this._pathRewritesToCommit();
@@ -214,7 +222,7 @@ class NextJSApp {
 
     this.overwriteProtection(dataDir);
     writeFileSync(
-      resolve(dataDir, `rewrites.json`),
+      resolve(dataDir, constants.rewritesFileName),
       JSON.stringify(rewriteMap, null, 2)
     );
   };

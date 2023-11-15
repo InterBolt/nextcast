@@ -20,7 +20,7 @@ type LocPosition = {
   };
 };
 
-export interface IError {
+export interface IErrorOrWarning {
   info: {
     loc: LocPosition;
     micro: string;
@@ -39,6 +39,7 @@ class Errors {
   constructor(store: Classes.store) {
     this.store = store;
     this.store.registerAccessPath(["errors"], []);
+    this.store.registerAccessPath(["warnings"], []);
   }
 
   private parseNode = (node: BabelNode | JscodeshiftNode, filePath: string) => {
@@ -79,7 +80,7 @@ class Errors {
 
   public log = () => {
     return this.store.reads
-      .get<Array<IError>>(["errors"])
+      .get<Array<IErrorOrWarning>>(["errors"])
       .map(({ info, message }) => {
         console.log(
           this.buildMessage(
@@ -96,11 +97,15 @@ class Errors {
       });
   };
 
-  public get = () => {
-    return this.store.reads.get<Array<IError>>(["errors"]);
+  public getErrors = () => {
+    return this.store.reads.get<Array<IErrorOrWarning>>(["errors"]);
   };
 
-  public report = (
+  public getWarnings = () => {
+    return this.store.reads.get<Array<IErrorOrWarning>>(["warnings"]);
+  };
+
+  public reportError = (
     message: string,
     filePath: string,
     node: BabelNode | JSCodeshiftNode = null
@@ -133,7 +138,9 @@ class Errors {
     } catch (err) {
       throw new Error(`Provided error message is not serializable: ${message}`);
     }
-    const preexistingErrors = this.store.reads.get<Array<IError>>(["errors"]);
+    const preexistingErrors = this.store.reads.get<Array<IErrorOrWarning>>([
+      "errors",
+    ]);
     const matchingError = preexistingErrors.find((preexistingError) =>
       isEqual(
         omit(preexistingError, ["info.timestamp"]),
@@ -143,7 +150,57 @@ class Errors {
     if (matchingError) {
       return;
     }
-    this.store.writes.unshift<IError>(["errors"], error);
+    this.store.writes.unshift<IErrorOrWarning>(["errors"], error);
+  };
+
+  public reportWarning = (
+    message: string,
+    filePath: string,
+    node: BabelNode | JSCodeshiftNode = null
+  ) => {
+    if (!existsSync(filePath)) {
+      throw new Error(
+        `Must include a path that exists to report an error. Invalid: ${filePath}`
+      );
+    }
+    const {
+      line = "unknown",
+      column = "unknown",
+      source = "unknown",
+      loc,
+    } = this.parseNode(node, filePath) || {};
+    const warning = {
+      info: {
+        loc,
+        micro: `${this.store.accessMicroName()}`,
+        file: filePath,
+        line: `${line}`,
+        column: `${column}`,
+        source: `${source}`,
+        timestamp: Date.now(),
+      },
+      message: message.replaceAll(process.cwd(), ""),
+    };
+    try {
+      JSON.stringify(warning);
+    } catch (err) {
+      throw new Error(
+        `Provided warning message is not serializable: ${message}`
+      );
+    }
+    const preexistingErrors = this.store.reads.get<Array<IErrorOrWarning>>([
+      "warnings",
+    ]);
+    const matchingWarning = preexistingErrors.find((preexistingError) =>
+      isEqual(
+        omit(preexistingError, ["info.timestamp"]),
+        omit(warning, ["info.timestamp"])
+      )
+    );
+    if (matchingWarning) {
+      return;
+    }
+    this.store.writes.unshift<IErrorOrWarning>(["warnings"], warning);
   };
 }
 

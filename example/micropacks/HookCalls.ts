@@ -16,7 +16,7 @@ class HookCalls implements Micro.Definition<Config> {
   }
 
   public collector: Micro.Collector<Config> = async (ctx) => {
-    const { getRoutes, traverse, collect, reportError, getDetailedImports } =
+    const { getRoutes, traverse, collect, reportWarning, getDetailedImports } =
       ctx;
     const { allowedArgTypes, exportIdentifier, path: fnPath } = this.config;
 
@@ -54,7 +54,7 @@ class HookCalls implements Micro.Definition<Config> {
                 (allowedArgType) => arg.type === allowedArgType
               );
               if (!isAllowed) {
-                reportError(
+                reportWarning(
                   `arg type "${arg.type}" is not allowed for uses of: ${fnPath}[${exportIdentifier}]`,
                   filePath,
                   path.node
