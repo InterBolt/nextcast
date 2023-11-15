@@ -1,12 +1,13 @@
 {
   "name": "@interbolt/micropack",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "browser": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "eslint"
   ],
   "scripts": {
     "dev": "npx tsc -w -d",
