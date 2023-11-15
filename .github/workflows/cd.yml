@@ -16,10 +16,9 @@ jobs:
         with:
           node-version: 18.17.1
           registry-url: "https://registry.npmjs.org"
-      - run: npm install -g yarn@1.22.19
-      - run: yarn install --frozen-lockfile
-      - run: yarn ci:build
-      - run: yarn ci:test
+      - run: npm ci
+      - run: npm run ci:build
+      - run: npm run ci:test
       - run: |
           npm config set '//registry.npmjs.org/:_authToken' "${NODE_AUTH_TOKEN}"
           npm publish --access public
