@@ -1,6 +1,6 @@
 {
   "name": "@interbolt/micropack",
-  "version": "1.0.0-alpha.15",
+  "version": "1.0.0-alpha.16",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "browser": "./dist/index.js",
@@ -9,8 +9,7 @@
     "yarn": "use npm!"
   },
   "files": [
-    "dist",
-    "eslint"
+    "dist"
   ],
   "scripts": {
     "dev:build": "rimraf dist && npx tsc -w -d",
