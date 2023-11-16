@@ -16,11 +16,9 @@ jobs:
         with:
           node-version: 18.17.1
           registry-url: "https://registry.npmjs.org"
-      - run: npm uninstall @interbolt/eslint-plugin-micropack
-      - run: npm ci
+      - run: npm ci --production
       - run: npm run ci:build
       - run: npm run ci:test
-      - run: npm run ci:add_eslint_plugin
       - run: |
           npm config set '//registry.npmjs.org/:_authToken' "${NODE_AUTH_TOKEN}"
           npm publish --access public

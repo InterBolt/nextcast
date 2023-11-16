@@ -16,7 +16,7 @@
     "dev:build": "rimraf dist && npx tsc -w -d",
     "ci:build": "rimraf dist && npx tsc && npx rollup -c",
     "ci:test": "echo \"No tests yet\"",
-    "ci:add_eslint_plugin": "npm install @interbolt/eslint-plugin-micropack@1.0.0-alpha.7"
+    "ci:add_eslint_plugin": "npm install @interbolt/eslint-plugin-micropack@1.0.0-alpha.8"
   },
   "dependencies": {
     "@babel/parser": "^7.23.3",
@@ -31,10 +31,9 @@
     "lodash": "^4.17.21"
   },
   "peerDependencies": {
-    "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.7"
+    "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.8"
   },
   "devDependencies": {
-    "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.7",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@types/babel__core": "^7.20.4",
     "@types/babel__traverse": "^7.20.4",
@@ -46,7 +45,8 @@
     "rimraf": "^5.0.5",
     "rollup": "^4.4.1",
     "type-fest": "^4.7.1",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.8"
   },
   "homepage": "https://github.com/InterBolt/micropack#readme",
   "repository": {
