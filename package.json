@@ -16,7 +16,7 @@
     "dev:build": "rimraf dist && npx tsc -w -d",
     "ci:build": "rimraf dist && npx tsc && npx rollup -c",
     "ci:test": "echo \"No tests yet\"",
-    "postpublish": "node ./postpublish.mjs"
+    "prepublish": "node ./prepublish.mjs"
   },
   "dependencies": {
     "@babel/parser": "^7.23.3",
