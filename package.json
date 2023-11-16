@@ -33,6 +33,7 @@
     "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.6"
   },
   "devDependencies": {
+    "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.6",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@types/babel__core": "^7.20.4",
     "@types/babel__traverse": "^7.20.4",
@@ -44,8 +45,7 @@
     "rimraf": "^5.0.5",
     "rollup": "^4.4.1",
     "type-fest": "^4.7.1",
-    "typescript": "^5.2.2",
-    "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.6"
+    "typescript": "^5.2.2"
   },
   "homepage": "https://github.com/InterBolt/micropack#readme",
   "repository": {
