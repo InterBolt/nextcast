@@ -16,7 +16,7 @@
       "line": "14",
       "column": "16",
       "source": "  const props = useBS(val);",
-      "timestamp": 1700102844433
+      "timestamp": 1700103296073
     },
     "message": "arg type \"Identifier\" is not allowed for uses of: /src/code/useCloudflareData.ts[default]"
   }

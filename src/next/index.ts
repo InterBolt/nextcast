@@ -17,7 +17,7 @@ import colors from "colors/safe";
 
 const getPackDirs = (dataDir: string) =>
   readdirSync(dataDir)
-    .filter((name) => !["node_modules", "dist"].includes(name))
+    .filter((name) => !["node_modules", "dist", ".cache"].includes(name))
     .filter((name) => statSync(resolve(dataDir, name)).isDirectory());
 
 export async function attachDataLoader(code: string) {

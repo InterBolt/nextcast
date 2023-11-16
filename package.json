@@ -1,6 +1,6 @@
 {
   "name": "@interbolt/micropack",
-  "version": "1.0.0-alpha.5",
+  "version": "1.0.0-alpha.6",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "browser": "./dist/index.js",
