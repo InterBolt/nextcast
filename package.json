@@ -1,6 +1,6 @@
 {
   "name": "@interbolt/micropack",
-  "version": "1.0.0-alpha.14",
+  "version": "1.0.0-alpha.15",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "browser": "./dist/index.js",
@@ -20,8 +20,6 @@
   },
   "dependencies": {
     "@babel/parser": "^7.23.3",
-    "@babel/preset-env": "^7.23.3",
-    "@babel/preset-typescript": "^7.23.3",
     "@babel/traverse": "^7.23.3",
     "app-root-path": "^3.1.0",
     "colors": "^1.4.0",
