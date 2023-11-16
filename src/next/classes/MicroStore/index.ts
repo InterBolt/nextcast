@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "fs";
 import { set } from "lodash";
-import type * as Types from "../../types";
 import * as parser from "@babel/parser";
+import type * as Types from "../../types";
 import { Reads, Writes } from "./queries";
 
 const STORE_PATH_DELIMITER = ".0BslO9.";
@@ -20,11 +20,11 @@ const uninitializedErrorMessage = `Store not initialized. Must call _dangerously
 const endedErrorMessage = `Store is closed. We already called _dangerouslyEndMicro().`;
 
 type THistory = Pick<
-  Store,
+  MicroStore,
   "_unsafeAccessRegisters" | "_unsafeStore" | "_unsafeMicroName"
 >;
 
-class Store {
+class MicroStore {
   public _unsafeAccessRegisters: Array<Array<string>> = [];
   public _unsafeStore: any = {};
   public _unsafeMicroName: string;
@@ -36,7 +36,7 @@ class Store {
   public writes: Writes = prohibitAccessProxy(uninitializedErrorMessage);
 
   public getHistory = () => {
-    return this._unsafeHistory.map((history) => new Store(history));
+    return this._unsafeHistory.map((history) => new MicroStore(history));
   };
 
   constructor(cacheHistory?: THistory) {
@@ -46,6 +46,12 @@ class Store {
       });
     }
   }
+
+  private _safePath = (path: Array<string>) => {
+    const cachePath = [this.accessMicroName(), ...path];
+    this._validatePath(cachePath);
+    return cachePath;
+  };
 
   public getParseCache = () =>
     this.reads.get<Record<string, Types.ParsedBabel>>(
@@ -120,12 +126,6 @@ class Store {
         };
       },
     }) as TWrites;
-  };
-
-  private _safePath = (path: Array<string>) => {
-    const cachePath = [this.accessMicroName(), ...path];
-    this._validatePath(cachePath);
-    return cachePath;
   };
 
   public parse = (filePath: string): Types.ParsedBabel => {
@@ -222,4 +222,4 @@ class Store {
   };
 }
 
-export default Store;
+export default MicroStore;

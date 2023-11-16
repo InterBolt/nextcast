@@ -33,8 +33,6 @@ yarn-error.log*
 # vercel
 .vercel
 
-.micropack
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts

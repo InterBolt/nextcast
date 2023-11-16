@@ -1,7 +1,7 @@
 import type * as Types from "../types";
 import jscodeshift, { Collection } from "jscodeshift";
 
-class Codemods {
+class HCodemods {
   public collection: Collection;
 
   constructor(collection: Collection) {
@@ -30,4 +30,4 @@ class Codemods {
   };
 }
 
-export default Codemods;
+export default HCodemods;

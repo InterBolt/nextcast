@@ -6,17 +6,18 @@ type Config = {
   allowedArgTypes?: Array<string>;
 };
 
-class HookCalls implements Micro.Definition<Config> {
-  config: Config;
-  name: string;
+class HookCalls extends Micro.Pack {
+  declare config: Config;
+  declare name: string;
 
   constructor(config: Config, name: string) {
+    super()
     this.config = config;
     this.name = name;
   }
 
-  public collector: Micro.Collector<Config> = async (ctx) => {
-    const { getRoutes, traverse, collect, reportWarning, getDetailedImports } =
+  public collector: Micro.Collector = async (ctx) => {
+    const { getRoutes, traverse, collect, reportError, getDetailedImports } =
       ctx;
     const { allowedArgTypes, exportIdentifier, path: fnPath } = this.config;
 
@@ -54,7 +55,7 @@ class HookCalls implements Micro.Definition<Config> {
                 (allowedArgType) => arg.type === allowedArgType
               );
               if (!isAllowed) {
-                reportWarning(
+                reportError(
                   `arg type "${arg.type}" is not allowed for uses of: ${fnPath}[${exportIdentifier}]`,
                   filePath,
                   path.node
@@ -76,13 +77,13 @@ class HookCalls implements Micro.Definition<Config> {
     });
   };
 
-  public reducer: Micro.Reducer<Config> = async (ctx) => {
+  public reducer: Micro.Reducer = async (ctx) => {
     const { collection } = ctx;
 
     return collection;
   };
 
-  public rewriter: Micro.Rewriter<Config> = async (ctx) => {
+  public rewriter: Micro.Rewriter = async (ctx) => {
     return;
   };
 }

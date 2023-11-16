@@ -1,5 +1,8 @@
 // import { JSCodeshift, Collection } from "jscodeshift";
-import type * as Classes from "./entities/types";
+import type MicroStore from "./classes/MicroStore";
+import type SApp from "./classes/SApp";
+import type SErrors from "./classes/SErrors";
+import type STraversals from "./classes/STraversals";
 import parser from "@babel/parser";
 
 interface JSONArray extends Array<JSONValue> {}
@@ -19,47 +22,36 @@ export type ProjectInfo = {
   tsconfig?: any;
 };
 
-export type SharedContext<
-  Config extends Record<string, any> = any,
-  ProvidedOptions extends Options = Options
-> = {
-  options: ProvidedOptions;
+export type SharedContext<Config extends Record<string, any> = any> = {
   config: Config;
   project: ProjectInfo;
-  parse: Classes.Store["parse"];
-  traverse: Classes.Traversals["traverse"];
-  codemod: Classes.Traversals["codemod"];
-  getDetailedImports: Classes.Traversals["getDetailedImports"];
-  getRoutes: Classes.NextJsApp["getRoutes"];
-  getErrors: Classes.Errors["getErrors"];
-  reportError: Classes.Errors["reportError"];
-  getWarnings: Classes.Errors["getWarnings"];
-  reportWarning: Classes.Errors["reportWarning"];
-  collect: Classes.NextJsApp["collect"];
+  parse: MicroStore["parse"];
+  traverse: STraversals["traverse"];
+  codemod: STraversals["codemod"];
+  getDetailedImports: STraversals["getDetailedImports"];
+  getRoutes: SApp["getRoutes"];
+  getErrors: SErrors["getErrors"];
+  reportError: SErrors["reportError"];
+  getWarnings: SErrors["getWarnings"];
+  reportWarning: SErrors["reportWarning"];
+  collect: SApp["collect"];
 };
 
-export type CollectorContext<
-  Config extends Record<string, any> = any,
-  ProvidedOptions extends Options = Options
-> = {
-  getCollection: Classes.NextJsApp["getCollection"];
-} & SharedContext<Config, ProvidedOptions>;
+export type CollectorContext<Config extends Record<string, any> = any> = {
+  getCollection: SApp["getCollection"];
+} & SharedContext<Config>;
 
-export type ReducerContext<
-  Config extends Record<string, any> = any,
-  ProvidedOptions extends Options = Options
-> = {
+export type ReducerContext<Config extends Record<string, any> = any> = {
   collection: JSONValue;
-} & SharedContext<Config, ProvidedOptions>;
+} & SharedContext<Config>;
 
 export type RewriterContext<
   Config extends Record<string, any> = any,
-  Reduced extends JSONValue = JSONValue,
-  ProvidedOptions extends Options = Options
+  Reduced extends JSONValue = JSONValue
 > = {
   collection: JSONValue;
   data: Reduced;
-} & SharedContext<Config, ProvidedOptions>;
+} & SharedContext<Config>;
 
 export type Route = {
   name: string;
@@ -79,13 +71,7 @@ export type Reducer<Config extends Record<string, any> = any> = (
   ctx: ReducerContext<Config>
 ) => Promise<JSONValue>;
 
-export interface DefinitionConstructor<
-  Config extends Record<string, any> = any
-> {
-  new (config: Config, name: string): Definition<Config>;
-}
-
-export interface Definition<Config extends Record<string, any>> {
+export interface MicroPackBase<Config extends Record<string, any>> {
   name: string;
   config: Config;
   collector?: Collector<Config>;
@@ -93,10 +79,19 @@ export interface Definition<Config extends Record<string, any>> {
   rewriter?: Rewriter<Config>;
 }
 
-export type Options = {
+export class Pack<Config extends Record<string, any> = any>
+  implements MicroPackBase<Config>
+{
+  public name: string;
+  public config: Config;
+
+  public collector?: Collector<Config>;
+  public reducer?: Reducer<Config>;
+  public rewriter?: Rewriter<Config>;
+}
+
+export type PackCoreOptions = {
   inputDir?: string;
   rewrite?: boolean;
   dataDir?: string;
 };
-
-export type WithMicropackOptions = Array<Options>;

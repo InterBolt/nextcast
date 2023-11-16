@@ -1,8 +1,8 @@
-import type * as Classes from "./index";
-import * as Utils from "../utils";
 import traverse, { TraverseOptions } from "@babel/traverse";
 import jscodeshift from "jscodeshift";
 import { readFileSync, existsSync } from "fs";
+import MicroStore from "./MicroStore/index";
+import * as Utils from "../utils";
 
 type ResolvedImport = {
   filePath: string;
@@ -10,10 +10,10 @@ type ResolvedImport = {
   assignee?: string;
 };
 
-class Traversals {
-  private store: Classes.store;
+class STraversals {
+  private store: MicroStore;
 
-  constructor(store: Classes.store) {
+  constructor(store: MicroStore) {
     this.store = store;
     this.store.registerAccessPath(["used_tree"], {});
     this.store.registerAccessPath(["detailed_imports"], {});
@@ -156,4 +156,4 @@ class Traversals {
   };
 }
 
-export default Traversals;
+export default STraversals;

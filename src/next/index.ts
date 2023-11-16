@@ -1,27 +1,40 @@
-import * as Utils from "./utils";
-import type * as Types from "./types";
-import core from "./core";
 import { isAbsolute, resolve } from "path";
 import jscodeshift from "jscodeshift";
-import * as Classes from "./entities";
-import type { Linter } from "eslint";
-import eslintPlugin from "./eslint/index";
-import constants from "./constants";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from "fs";
 import { execSync } from "child_process";
+import core from "./core";
+import Codemods from "./classes/HCodemods";
+import constants from "./constants";
+import * as Utils from "./utils";
+import type * as Types from "./types";
+import colors from "colors/safe";
+
+const getPackDirs = (dataDir: string) =>
+  readdirSync(dataDir)
+    .filter((name) => !["node_modules", "dist"].includes(name))
+    .filter((name) => statSync(resolve(dataDir, name)).isDirectory());
 
 export async function attachDataLoader(code: string) {
   const callback = this.async();
-  const { name } = this.getOptions();
-  const pathToData = resolve(
-    `.${constants.name}`,
-    name,
-    constants.dataFileName
-  );
-  const data = require(pathToData);
-  const codemods = new Classes.codemods(jscodeshift.withParser("tsx")(code));
+  const dataDir = resolve(Utils.getProjectRoot(), `.${constants.name}`);
+  const codemods = new Codemods(jscodeshift.withParser("tsx")(code));
+  const names = getPackDirs(dataDir);
 
-  codemods.addDataToHTMLTag(data, `data-${constants.name}-${name}`, "html");
+  names.forEach((name) => {
+    const pathToData = resolve(
+      `.${constants.name}`,
+      name,
+      constants.dataFileName
+    );
+    const data = require(pathToData);
+    codemods.addDataToHTMLTag(data, `data-${constants.name}-${name}`, "html");
+  });
 
   try {
     return callback(null, codemods.collection.toSource());
@@ -32,21 +45,26 @@ export async function attachDataLoader(code: string) {
 
 export async function rewriterLoader(code: string) {
   const callback = this.async();
-  const { name } = this.getOptions();
+  const dataDir = resolve(Utils.getProjectRoot(), `.${constants.name}`);
+  const names = getPackDirs(dataDir);
   const resourcePath = this.resourcePath as string;
-  const pathToRewrites = resolve(
-    `.${constants.name}`,
-    name,
-    constants.rewritesFileName
-  );
-  const rewrite = (() => {
-    try {
-      return require(pathToRewrites);
-    } catch (err) {
-      console.log(err);
-      throw new Error(`Could not require ${pathToRewrites}`);
-    }
-  })()[resourcePath];
+  let rewrite: string | undefined = undefined;
+
+  names.forEach((name) => {
+    const pathToRewrites = resolve(
+      `.${constants.name}`,
+      name,
+      constants.rewritesFileName
+    );
+    rewrite = (() => {
+      try {
+        return require(pathToRewrites);
+      } catch (err) {
+        console.log(err);
+        throw new Error(`Could not require ${pathToRewrites}`);
+      }
+    })()[resourcePath];
+  });
 
   try {
     return callback(null, typeof rewrite === "string" ? rewrite : code);
@@ -55,18 +73,27 @@ export async function rewriterLoader(code: string) {
   }
 }
 
-const runMicrosWithCache = async (micros: Array<Types.Definition<any>>) => {
-  let prevParseCache: Record<string, Types.ParsedBabel> = {};
-  for (let i = 0; i < micros.length; i++) {
-    console.log(` » Running micro: ${micros[i].name}`);
-    const { parseCache } = await core(
-      micros[i],
+const runPacksWithCache = async (packs: Array<Types.Pack<any>>) => {
+  let previouslyParsed: Record<string, Types.ParsedBabel> = {};
+  for (let i = 0; i < packs.length; i++) {
+    const startTime = Date.now();
+
+    const { parsed, errors: errorLogs } = await core(
+      packs[i],
       {
         rewrite: false,
       },
-      prevParseCache
+      previouslyParsed
     );
-    prevParseCache = parseCache;
+
+    errorLogs.map((args) => console.log(...args));
+
+    console.log(
+      ` ${colors.green(colors.bold("✓"))} Ran micropack: ${colors.blue(
+        packs[i].name
+      )} in ${((Date.now() - startTime) / 1000).toFixed(2)}s`
+    );
+    previouslyParsed = parsed;
   }
 };
 
@@ -76,7 +103,7 @@ const mapInputDir = (inputDir: string) => {
     : resolve(Utils.getProjectRoot(), inputDir);
 };
 
-const getLastSourceCodeHash = (dataDir: string) => {
+const getLastSourceCodeHash = () => {
   const tsconfigPath = resolve(Utils.getProjectRoot(), "tsconfig.json");
   const { exclude = ["node_modules"], include = ["."] } = existsSync(
     tsconfigPath
@@ -86,36 +113,12 @@ const getLastSourceCodeHash = (dataDir: string) => {
   return Utils.getSourceCodeHash(exclude, include);
 };
 
-class MicropackPlugin {
-  public dataDir: string;
-  public lastSourceCodeHash: string;
-  public micros: Array<Types.Definition<any>>;
-
-  constructor(options: {
-    micros: Array<Types.Definition<any>>;
-    dataDir: string;
-  }) {
-    this.lastSourceCodeHash = getLastSourceCodeHash(options.dataDir);
-    this.micros = options.micros;
-  }
-
-  apply(compiler: any) {
-    compiler.hooks.beforeCompile.tapPromise(constants.name, async () => {
-      const nextHash = getLastSourceCodeHash(this.dataDir);
-      if (nextHash !== this.lastSourceCodeHash) {
-        this.lastSourceCodeHash = nextHash;
-        await runMicrosWithCache(this.micros);
-      }
-    });
-  }
-}
-
 const createTsConfigIfNotExists = (inputDirPath: string) => {
   const tsConfigPath = resolve(inputDirPath, "tsconfig.json");
   if (!existsSync(tsConfigPath)) {
     const tsConfig = {
       compilerOptions: {
-        outDir: `../.${constants.name}/dist`,
+        outDir: `../dist`,
         target: "ESNext",
         module: "commonjs",
         moduleResolution: "node",
@@ -138,7 +141,26 @@ const createTsConfigIfNotExists = (inputDirPath: string) => {
   return foundTsConfig;
 };
 
-const compileInputDir = (inputDirPath: string) => {
+const compileUserPacks = (inputDirPath: string) => {
+  Utils.runWhenChanged(inputDirPath, () => {
+    const startTime = Date.now();
+    console.log(
+      ` ${colors.white(
+        colors.bold("»")
+      )} One sec, gotta compile your micropacks...`
+    );
+    execSync(`npx tsc -p ${resolve(inputDirPath, "tsconfig.json")}`, {
+      cwd: Utils.getProjectRoot(),
+      stdio: "inherit",
+      encoding: "utf8",
+    });
+    console.log(
+      ` ${colors.white(colors.bold("»"))} Compiled your packs in ${(
+        (Date.now() - startTime) /
+        1000
+      ).toFixed(2)}s`
+    );
+  });
   execSync(`npx tsc -p ${resolve(inputDirPath, "tsconfig.json")}`, {
     cwd: Utils.getProjectRoot(),
     stdio: "inherit",
@@ -146,94 +168,95 @@ const compileInputDir = (inputDirPath: string) => {
   });
 };
 
-const loadUserMicros = (inputDir: string) => {
+const loadUserPacks = (inputDir: string) => {
   const inputDirPath = mapInputDir(inputDir);
 
   if (!existsSync(inputDirPath)) {
     throw new Error(
-      `${constants.name} error: could not find micros input directory at ${inputDirPath}`
+      `${constants.name} error: could not find packs input directory at ${inputDirPath}`
     );
   }
-  let micros: any = [];
+
   const tsEntryPath = resolve(inputDirPath, "index.ts");
-  const jsEntryPath = resolve(inputDirPath, "index.js");
-
-  if (!existsSync(tsEntryPath) && !existsSync(jsEntryPath)) {
-    throw new Error(
-      `${constants.name} error: could not find micros entry file at ${inputDirPath}`
-    );
-  }
-
   if (!existsSync(tsEntryPath)) {
-    micros = require(jsEntryPath);
-  } else {
-    const foundTsConfig = createTsConfigIfNotExists(inputDirPath);
-    compileInputDir(inputDirPath);
-    const compiledPath = resolve(
-      inputDirPath,
-      foundTsConfig.compilerOptions.outDir,
-      "index.js"
-    );
-    micros = require(compiledPath).default;
+    throw new Error(`${constants.name} error: could not find ${tsEntryPath}`);
   }
 
-  if (typeof micros === "undefined" || !Array.isArray(micros)) {
+  const foundTsConfig = createTsConfigIfNotExists(inputDirPath);
+  compileUserPacks(inputDirPath);
+
+  const packs = require(resolve(
+    inputDirPath,
+    foundTsConfig.compilerOptions.outDir,
+    "index.js"
+  )).default;
+
+  if (typeof packs === "undefined" || !Array.isArray(packs)) {
     throw new Error(
-      `${constants.name} error: ${inputDirPath}/index.{ts,js} must include a default export that is an array of micros.`
+      `${constants.name} error: ${inputDirPath}/index.{ts,js} must include a default export that is an array of packs.`
     );
   }
 
-  return micros as Array<Types.Definition<any>>;
+  return packs as Array<Types.Pack<any>>;
 };
+
+class Plugin {
+  public runCount = 0;
+  public dataDir: string;
+  public lastSourceCodeHash: string;
+  public packs: Array<Types.Pack<any>>;
+
+  constructor(options: { inputDir: string }) {
+    this.packs = loadUserPacks(options.inputDir);
+    this.lastSourceCodeHash = getLastSourceCodeHash();
+  }
+
+  apply(compiler: any) {
+    compiler.hooks.beforeCompile.tapPromise(
+      constants.name[0].toUpperCase() + constants.name.slice(1),
+      async () => {
+        await runPacksWithCache(this.packs);
+      }
+    );
+  }
+}
 
 export const withMicropack = (
   nextConfig: any,
   opts?: { inputDir?: string }
 ) => {
   const { inputDir = constants.userDir } = opts || {};
-  const micros = loadUserMicros(inputDir);
+
   const webpack = (config: any, nextWebpackOptions: any) => {
-    config.plugins.push(
-      new MicropackPlugin({
-        micros,
-        dataDir: resolve(Utils.getProjectRoot(), `.${constants.name}`),
-      })
+    config.plugins.push(new Plugin({ inputDir }));
+
+    config.module.rules.push(
+      {
+        // Run on the root layout because we'll attach the lookahead data
+        // to the body tag as a data attribute.
+        test: new RegExp(`${Utils.getAppDir()}/layout.(js|ts|tsx|jsx)`),
+        use: [
+          {
+            loader: resolve(__dirname, "loaders", "attachData.js"),
+          },
+        ],
+        enforce: "pre",
+      },
+      {
+        // Run on the root layout because we'll attach the lookahead data
+        // to the body tag as a data attribute.
+        test: /\.(js|jsx|ts|tsx)$/,
+        use: [
+          {
+            loader: resolve(__dirname, "loaders", "rewrite.js"),
+          },
+        ],
+        // we must run this before attaching data to the root layout
+        // in the loader below so that we don't lose our data attribute
+        // in the process of executing rewrites.
+        enforce: "pre",
+      }
     );
-    micros.forEach((micro) => {
-      config.module.rules.push(
-        {
-          // Run on the root layout because we'll attach the lookahead data
-          // to the body tag as a data attribute.
-          test: new RegExp(`${Utils.getAppDir()}/layout.(js|ts|tsx|jsx)`),
-          use: [
-            {
-              options: {
-                name: micro.name,
-              },
-              loader: resolve(__dirname, "loaders", "attachData.js"),
-            },
-          ],
-          enforce: "pre",
-        },
-        {
-          // Run on the root layout because we'll attach the lookahead data
-          // to the body tag as a data attribute.
-          test: /\.(js|jsx|ts|tsx)$/,
-          use: [
-            {
-              options: {
-                name: micro.name,
-              },
-              loader: resolve(__dirname, "loaders", "rewrite.js"),
-            },
-          ],
-          // we must run this before attaching data to the root layout
-          // in the loader below so that we don't lose our data attribute
-          // in the process of executing rewrites.
-          enforce: "pre",
-        }
-      );
-    });
 
     if (typeof nextConfig.webpack === "function") {
       return nextConfig.webpack(config, nextWebpackOptions);

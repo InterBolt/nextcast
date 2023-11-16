@@ -1,24 +1,24 @@
-import type * as Classes from "./index";
-import * as Utils from "../utils";
-import type * as Types from "../types";
 import { basename, resolve, dirname } from "path";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { glob } from "glob";
 import type { Collection } from "jscodeshift";
+import type STraversals from "./STraversals";
+import type { IErrorOrWarning } from "./SErrors";
+import MicroStore from "./MicroStore/index";
+import * as Utils from "../utils";
+import type * as Types from "../types";
 import constants from "../constants";
-import { IErrorOrWarning } from "./errors";
-import { isEqual, omit } from "lodash";
 
 export interface ICollectionItem {
   payload: Types.JSONValue;
   timestamp: number;
 }
 
-class NextJSApp {
-  private store: Classes.store;
-  private traversals: Classes.traversals;
+class SApp {
+  private store: MicroStore;
+  private traversals: STraversals;
 
-  constructor(store: Classes.store, traversals: Classes.traversals) {
+  constructor(store: MicroStore, traversals: STraversals) {
     this.traversals = traversals;
     this.store = store;
   }
@@ -102,8 +102,13 @@ class NextJSApp {
   };
 
   public getCollection = () =>
-    this.store.reads.get<Array<ICollectionItem>>(this._pathAppCollection()) ||
-    [];
+    JSON.parse(
+      JSON.stringify(
+        this.store.reads.get<Array<ICollectionItem>>(
+          this._pathAppCollection()
+        ) || []
+      )
+    );
 
   public getRoutes = (
     providedNames?: Array<string> | string
@@ -217,6 +222,7 @@ class NextJSApp {
         `Cannot commit rewrites because ${dataDir} does not exist.`
       );
     }
+
     const cachePath = this._pathRewritesToCommit();
     const rewriteMap = this.store.reads.get<Record<string, string>>(cachePath);
 
@@ -225,6 +231,27 @@ class NextJSApp {
       resolve(dataDir, constants.rewritesFileName),
       JSON.stringify(rewriteMap, null, 2)
     );
+  };
+
+  public getStashed = (dataDir: string) => {
+    if (!existsSync(dataDir)) {
+      throw new Error(`Committed data folder ${dataDir} does not exist.`);
+    }
+
+    return readdirSync(dataDir)
+      .filter((name) => name.endsWith(".json"))
+      .reduce((accum, fileName) => {
+        try {
+          const filePath = resolve(dataDir, fileName);
+          const file = JSON.parse(readFileSync(filePath, "utf8"));
+          return {
+            ...accum,
+            [fileName]: file,
+          };
+        } catch (err) {
+          throw new Error(`Failed to parse ${fileName} in ${dataDir}.`);
+        }
+      }, {} as Record<string, Types.JSONValue>);
   };
 
   public executeRewrites = (dataDir: string) => {
@@ -320,4 +347,4 @@ class NextJSApp {
   };
 }
 
-export default NextJSApp;
+export default SApp;

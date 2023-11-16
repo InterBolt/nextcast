@@ -1,5 +1,4 @@
 import { Node as BabelNode } from "@babel/traverse";
-import type * as Classes from "./index";
 import {
   ASTNode as JSCodeshiftNode,
   Node as JscodeshiftNode,
@@ -8,6 +7,7 @@ import colors from "colors/safe";
 import { existsSync, readFileSync } from "fs";
 import { stripIndent } from "common-tags";
 import { isEqual, omit } from "lodash";
+import MicroStore from "./MicroStore/index";
 
 type LocPosition = {
   start: {
@@ -33,10 +33,10 @@ export interface IErrorOrWarning {
   message: string;
 }
 
-class Errors {
-  private store: Classes.store;
+class SErrors {
+  private store: MicroStore;
 
-  constructor(store: Classes.store) {
+  constructor(store: MicroStore) {
     this.store = store;
     this.store.registerAccessPath(["errors"], []);
     this.store.registerAccessPath(["warnings"], []);
@@ -78,23 +78,25 @@ class Errors {
       .join("\n") +
     "\n";
 
-  public log = () => {
+  public getLogs = () => {
     return this.store.reads
       .get<Array<IErrorOrWarning>>(["errors"])
-      .map(({ info, message }) => {
-        console.log(
-          this.buildMessage(
-            message,
-            [
-              [colors.bold("micro"), info.micro],
-              [colors.bold("file"), info.file.replace(process.cwd(), "")],
-              [colors.bold("line"), info.line],
-              [colors.bold("column"), info.column],
-            ],
-            colors.red(stripIndent`${info.source}`)
-          )
-        );
-      });
+      .map(({ info, message }) => [
+        this.buildMessage(
+          message,
+          [
+            [colors.bold("micro"), info.micro],
+            [colors.bold("file"), info.file.replace(process.cwd(), "")],
+            [colors.bold("line"), info.line],
+            [colors.bold("column"), info.column],
+          ],
+          colors.red(stripIndent`${info.source}`)
+        ),
+      ]);
+  };
+
+  public log = () => {
+    return this.getLogs().map((args) => console.log(...args));
   };
 
   public getErrors = () => {
@@ -204,4 +206,4 @@ class Errors {
   };
 }
 
-export default Errors;
+export default SErrors;

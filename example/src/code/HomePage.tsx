@@ -6,7 +6,8 @@ import { default as useOtherName } from "./useCloudflareData";
 const val = "asdf";
 
 const HomePage = () => {
-  const props = useOtherName(val);
+  const props = useOtherName('val');
+  
   
   return (
     <main className="flex flex-col items-center justify-between min-h-screen p-24">

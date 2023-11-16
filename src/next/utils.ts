@@ -1,8 +1,9 @@
 import { basename, dirname, join, resolve } from "path";
-import { existsSync, readFileSync, readdirSync } from "fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import appRootPath from "app-root-path";
 import { createHash } from "crypto";
 import { glob } from "glob";
+import constants from "./constants";
 
 const getNestedDepthRelativePath = (basePath: string, nestedPath: string) => {
   const nestDistance = nestedPath.replace(basePath, "").split("/").length - 1;
@@ -251,7 +252,7 @@ export const dirHash = (dir: string) => {
   return createHash("sha256").update(hexes.join("")).digest("hex");
 };
 
-export const getSourceCodeHash = (
+export const getSourceDirs = (
   exclude: Array<string> = ["node_modules"],
   include: Array<string> = ["./**/*"]
 ) => {
@@ -267,8 +268,51 @@ export const getSourceCodeHash = (
       }
     });
   });
-  const hashes = includedDirectories
+
+  return includedDirectories.filter((d) => d !== ".").slice(1);
+};
+
+export const getSourceCodeHash = (
+  exclude: Array<string> = ["node_modules"],
+  include: Array<string> = ["./**/*"]
+) => {
+  const hashes = getSourceDirs(exclude, include)
     .filter((d) => d !== ".")
+    .slice(1)
     .map((dir) => dirHash(dir));
+
   return createHash("sha256").update(hashes.join("")).digest("hex");
+};
+
+export const runWhenChanged = <Run extends (...args: any[]) => any>(
+  dir: string,
+  run: Run
+): ReturnType<Run> | undefined => {
+  const hash = getSourceCodeHash(
+    ["node_modules", "dist"],
+    [resolve(getProjectRoot(), dir) + "/**"]
+  );
+
+  const cachePath = resolve(
+    getProjectRoot(),
+    `.${constants.name}`,
+    `${hash}.txt`
+  );
+
+  const cachedHash = (() => {
+    try {
+      return readFileSync(cachePath, "utf8");
+    } catch (err) {
+      return "";
+    }
+  })();
+
+  if (cachedHash === hash) {
+    return;
+  }
+
+  const result = run();
+  writeFileSync(cachePath, hash);
+
+  return result;
 };

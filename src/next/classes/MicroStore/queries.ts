@@ -1,10 +1,10 @@
 import { get, set } from "lodash";
-import type Store from "./store";
+import type MicroStore from "./index";
 
 export class Writes {
-  public store: Store;
+  public store: MicroStore;
 
-  constructor(store: Store) {
+  constructor(store: MicroStore) {
     this.store = store;
   }
 
@@ -55,9 +55,9 @@ export class Writes {
 }
 
 export class Reads {
-  public store: Store;
+  public store: MicroStore;
 
-  constructor(store: Store) {
+  constructor(store: MicroStore) {
     this.store = store;
   }
 

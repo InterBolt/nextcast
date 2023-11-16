@@ -8,5 +8,3 @@ const eslintPlugin = {
 };
 
 export default eslintPlugin;
-
-module.exports = eslintPlugin;

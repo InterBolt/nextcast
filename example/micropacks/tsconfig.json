@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "outDir": "../.micropack/dist",
+    "outDir": "../dist",
     "target": "ESNext",
     "module": "commonjs",
     "moduleResolution": "node",
