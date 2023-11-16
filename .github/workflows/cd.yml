@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 18.17.1
           registry-url: "https://registry.npmjs.org"
-      - run: npm ci --omit-peer
+      - run: npm ci --omit=peer
       - run: npm run ci:build
       - run: npm run ci:test
       - run: |
