@@ -1,5 +1,12 @@
 import { basename, dirname, join, resolve } from "path";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import {
+  exists,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "fs";
 import appRootPath from "app-root-path";
 import { createHash } from "crypto";
 import { glob } from "glob";
@@ -293,11 +300,17 @@ export const runWhenChanged = <Run extends (...args: any[]) => any>(
     [resolve(getProjectRoot(), dir) + "/**"]
   );
 
-  const cachePath = resolve(
+  const cacheDirPath = resolve(
     getProjectRoot(),
     `.${constants.name}`,
-    `${hash}.txt`
+    ".cache"
   );
+
+  if (!existsSync(cacheDirPath)) {
+    mkdirSync(cacheDirPath);
+  }
+
+  const cachePath = resolve(cacheDirPath, `${hash}.txt`);
 
   const cachedHash = (() => {
     try {
