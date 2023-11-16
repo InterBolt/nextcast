@@ -15,8 +15,7 @@
   "scripts": {
     "dev:build": "rimraf dist && npx tsc -w -d",
     "ci:build": "rimraf dist && npx tsc && npx rollup -c",
-    "ci:test": "echo \"No tests yet\"",
-    "ci:add_eslint_plugin": "npm install @interbolt/eslint-plugin-micropack@1.0.0-alpha.8"
+    "ci:test": "echo \"No tests yet\""
   },
   "dependencies": {
     "@babel/parser": "^7.23.3",
