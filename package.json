@@ -15,7 +15,8 @@
   "scripts": {
     "dev:build": "rimraf dist && npx tsc -w -d",
     "ci:build": "rimraf dist && npx tsc && npx rollup -c",
-    "ci:test": "echo \"No tests yet\""
+    "ci:test": "echo \"No tests yet\"",
+    "postpublish": "node ./postpublish.mjs"
   },
   "dependencies": {
     "@babel/parser": "^7.23.3",
@@ -28,9 +29,6 @@
     "glob": "^10.3.10",
     "jscodeshift": "^0.15.1",
     "lodash": "^4.17.21"
-  },
-  "peerDependencies": {
-    "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.10"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",

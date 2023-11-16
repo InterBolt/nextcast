@@ -20,8 +20,6 @@ function prepEslintPlugin() {
       const eslintPluginPkg = JSON.parse(
         readFileSync(pathToEslintPluginPackageJSON, "utf8")
       );
-      rootPkg.peerDependencies = rootPkg.peerDependencies || {};
-      rootPkg.peerDependencies[eslintPluginPkg.name] = version;
 
       eslintPluginPkg.version = version;
       eslintPluginPkg.name = name.replace(
