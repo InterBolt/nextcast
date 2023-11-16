@@ -14,10 +14,15 @@ import constants from "./constants";
 import * as Utils from "./utils";
 import type * as Types from "./types";
 import colors from "colors/safe";
+import logger from "./logger";
+import HDirHasher from "./classes/HDirHasher";
+
+const debouncer = new HDirHasher();
 
 const getPackDirs = (dataDir: string) =>
   readdirSync(dataDir)
-    .filter((name) => !["node_modules", "dist", ".cache"].includes(name))
+    .filter((name) => !["node_modules", "dist"].includes(name))
+    .filter((name) => !name.startsWith("."))
     .filter((name) => statSync(resolve(dataDir, name)).isDirectory());
 
 export async function attachDataLoader(code: string) {
@@ -73,7 +78,7 @@ export async function rewriterLoader(code: string) {
   }
 }
 
-const runPacksWithCache = async (packs: Array<Types.Pack<any>>) => {
+const runMicropacks = async (packs: Array<Types.Pack<any>>) => {
   let previouslyParsed: Record<string, Types.ParsedBabel> = {};
   for (let i = 0; i < packs.length; i++) {
     const startTime = Date.now();
@@ -88,11 +93,13 @@ const runPacksWithCache = async (packs: Array<Types.Pack<any>>) => {
 
     errorLogs.map((args) => console.log(...args));
 
-    console.log(
-      ` ${colors.green(colors.bold("✓"))} Ran micropack: ${colors.blue(
-        packs[i].name
-      )} in ${((Date.now() - startTime) / 1000).toFixed(2)}s`
+    logger.success(
+      `Ran micropack: ${colors.blue(packs[i].name)} in ${(
+        (Date.now() - startTime) /
+        1000
+      ).toFixed(2)}s`
     );
+
     previouslyParsed = parsed;
   }
 };
@@ -101,16 +108,6 @@ const mapInputDir = (inputDir: string) => {
   return isAbsolute(inputDir)
     ? inputDir
     : resolve(Utils.getProjectRoot(), inputDir);
-};
-
-const getLastSourceCodeHash = () => {
-  const tsconfigPath = resolve(Utils.getProjectRoot(), "tsconfig.json");
-  const { exclude = ["node_modules"], include = ["."] } = existsSync(
-    tsconfigPath
-  )
-    ? require(tsconfigPath)
-    : {};
-  return Utils.getSourceCodeHash(exclude, include);
 };
 
 const createTsConfigIfNotExists = (inputDirPath: string) => {
@@ -142,30 +139,18 @@ const createTsConfigIfNotExists = (inputDirPath: string) => {
 };
 
 const compileUserPacks = (inputDirPath: string) => {
-  Utils.runWhenChanged(inputDirPath, () => {
-    const startTime = Date.now();
-    console.log(
-      ` ${colors.white(
-        colors.bold("»")
-      )} One sec, gotta compile your micropacks...`
-    );
-    execSync(`npx tsc -p ${resolve(inputDirPath, "tsconfig.json")}`, {
-      cwd: Utils.getProjectRoot(),
-      stdio: "inherit",
-      encoding: "utf8",
-    });
-    console.log(
-      ` ${colors.white(colors.bold("»"))} Compiled your packs in ${(
-        (Date.now() - startTime) /
-        1000
-      ).toFixed(2)}s`
-    );
-  });
+  const startTime = Date.now();
+  logger.wait(`One sec, gotta compile your micropacks...`);
+
   execSync(`npx tsc -p ${resolve(inputDirPath, "tsconfig.json")}`, {
     cwd: Utils.getProjectRoot(),
     stdio: "inherit",
     encoding: "utf8",
   });
+
+  logger.success(
+    `Compiled your packs in ${((Date.now() - startTime) / 1000).toFixed(2)}s`
+  );
 };
 
 const loadUserPacks = (inputDir: string) => {
@@ -183,13 +168,22 @@ const loadUserPacks = (inputDir: string) => {
   }
 
   const foundTsConfig = createTsConfigIfNotExists(inputDirPath);
-  compileUserPacks(inputDirPath);
-
-  const packs = require(resolve(
+  debouncer.runWhenChanged(() => compileUserPacks(inputDirPath), {
+    namespace: "compile_micropacks",
+    dir: inputDirPath,
+    excludeFiles: ["tsconfig.json"],
+  });
+  const pathToCompiledFile = resolve(
     inputDirPath,
     foundTsConfig.compilerOptions.outDir,
     "index.js"
-  )).default;
+  );
+  if (!existsSync(pathToCompiledFile)) {
+    throw new Error(
+      `${constants.name} error: could not find compiled file at ${pathToCompiledFile}`
+    );
+  }
+  const packs = require(pathToCompiledFile).default;
 
   if (typeof packs === "undefined" || !Array.isArray(packs)) {
     throw new Error(
@@ -201,21 +195,25 @@ const loadUserPacks = (inputDir: string) => {
 };
 
 class Plugin {
-  public runCount = 0;
-  public dataDir: string;
-  public lastSourceCodeHash: string;
+  public inputDir: string;
   public packs: Array<Types.Pack<any>>;
 
   constructor(options: { inputDir: string }) {
-    this.packs = loadUserPacks(options.inputDir);
-    this.lastSourceCodeHash = getLastSourceCodeHash();
+    this.inputDir = options.inputDir;
   }
+
+  run = () => {
+    return debouncer.runWhenChanged(() => runMicropacks(this.packs), {
+      namespace: "ran_micropacks",
+    });
+  };
 
   apply(compiler: any) {
     compiler.hooks.beforeCompile.tapPromise(
       constants.name[0].toUpperCase() + constants.name.slice(1),
       async () => {
-        await runPacksWithCache(this.packs);
+        this.packs = loadUserPacks(this.inputDir);
+        await this.run();
       }
     );
   }
@@ -226,6 +224,7 @@ export const withMicropack = (
   opts?: { inputDir?: string }
 ) => {
   const { inputDir = constants.userDir } = opts || {};
+  debouncer.init();
 
   const webpack = (config: any, nextWebpackOptions: any) => {
     config.plugins.push(new Plugin({ inputDir }));

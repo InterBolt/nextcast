@@ -6,6 +6,7 @@ const constants = {
   errorsFileName: "errors.json",
   warningsFileName: "warnings.json",
   collectionFileName: "collection.json",
+  hashDir: ".hashes",
 };
 
 export default constants;

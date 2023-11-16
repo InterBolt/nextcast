@@ -10,8 +10,7 @@
     "compile:micropacks": "npx tsc -p ./micropacks/tsconfig.json"
   },
   "dependencies": {
-    "@interbolt/eslint-plugin-micropack": "^1.0.0-alpha.4",
-    "@interbolt/micropack": "^1.0.0-alpha.10",
+    "@interbolt/micropack": "file:..",
     "glob": "^10.3.10",
     "lodash": "^4.17.21",
     "next": "14.0.2",

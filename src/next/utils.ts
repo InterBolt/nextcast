@@ -1,16 +1,6 @@
-import { basename, dirname, join, resolve } from "path";
-import {
-  exists,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from "fs";
+import { basename, dirname, resolve } from "path";
+import { existsSync } from "fs";
 import appRootPath from "app-root-path";
-import { createHash } from "crypto";
-import { glob } from "glob";
-import constants from "./constants";
 
 const getNestedDepthRelativePath = (basePath: string, nestedPath: string) => {
   const nestDistance = nestedPath.replace(basePath, "").split("/").length - 1;
@@ -233,99 +223,4 @@ export const resolveImport = (filePath: string, importPath: string) => {
     ...(tsconfig?.compilerOptions?.paths || {}),
     ["*"]: ["node_modules/*"],
   });
-};
-
-// concat all files hashes and hash the hashes
-export const dirHash = (dir: string) => {
-  function* walkSync(dir: string) {
-    const files = readdirSync(dir, { withFileTypes: true });
-    for (const file of files) {
-      if (file.isDirectory()) {
-        yield* walkSync(join(dir, file.name));
-      } else {
-        yield join(dir, file.name);
-      }
-    }
-  }
-
-  const hexes = [];
-  for (const file of walkSync(dir)) {
-    const buffer = readFileSync(file);
-    const hash = createHash("sha256");
-    hash.update(buffer);
-    const hex = hash.digest("hex");
-    hexes.push(hex);
-  }
-  return createHash("sha256").update(hexes.join("")).digest("hex");
-};
-
-export const getSourceDirs = (
-  exclude: Array<string> = ["node_modules"],
-  include: Array<string> = ["./**/*"]
-) => {
-  let includedDirectories = [];
-  const fixedExcludes = exclude.map((s) => (s.endsWith("**") ? s : `${s}/**`));
-  const fixedIncludes = include.map((s) => (s === "." ? "./**" : s));
-  fixedIncludes.forEach((pattern) => {
-    const matches = glob.sync(pattern, { ignore: fixedExcludes });
-    matches.forEach((match) => {
-      const directory = dirname(match);
-      if (!includedDirectories.includes(directory)) {
-        includedDirectories.push(directory);
-      }
-    });
-  });
-
-  return includedDirectories.filter((d) => d !== ".").slice(1);
-};
-
-export const getSourceCodeHash = (
-  exclude: Array<string> = ["node_modules"],
-  include: Array<string> = ["./**/*"]
-) => {
-  const hashes = getSourceDirs(exclude, include)
-    .filter((d) => d !== ".")
-    .slice(1)
-    .map((dir) => dirHash(dir));
-
-  return createHash("sha256").update(hashes.join("")).digest("hex");
-};
-
-export const runWhenChanged = <Run extends (...args: any[]) => any>(
-  dir: string,
-  run: Run
-): ReturnType<Run> | undefined => {
-  const hash = getSourceCodeHash(
-    ["node_modules", "dist"],
-    [resolve(getProjectRoot(), dir) + "/**"]
-  );
-
-  const cacheDirPath = resolve(
-    getProjectRoot(),
-    `.${constants.name}`,
-    ".cache"
-  );
-
-  if (!existsSync(cacheDirPath)) {
-    mkdirSync(cacheDirPath);
-  }
-
-  const cachePath = resolve(cacheDirPath, `${hash}.txt`);
-
-  const cachedHash = (() => {
-    try {
-      return readFileSync(cachePath, "utf8");
-    } catch (err) {
-      return "";
-    }
-  })();
-
-  if (cachedHash === hash) {
-    return;
-  }
-
-  const result = run();
-  writeFileSync(cachePath, hash);
-
-  return result;
 };
