@@ -1,6 +1,6 @@
 {
   "name": "@interbolt/micropack",
-  "version": "1.0.0-alpha.9",
+  "version": "1.0.0-alpha.10",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "browser": "./dist/index.js",
@@ -30,7 +30,7 @@
     "lodash": "^4.17.21"
   },
   "peerDependencies": {
-    "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.8"
+    "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.10"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
@@ -44,8 +44,7 @@
     "rimraf": "^5.0.5",
     "rollup": "^4.4.1",
     "type-fest": "^4.7.1",
-    "typescript": "^5.2.2",
-    "@interbolt/eslint-plugin-micropack": "1.0.0-alpha.8"
+    "typescript": "^5.2.2"
   },
   "homepage": "https://github.com/InterBolt/micropack#readme",
   "repository": {

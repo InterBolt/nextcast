@@ -22,8 +22,6 @@ function prepEslintPlugin() {
       );
       rootPkg.peerDependencies = rootPkg.peerDependencies || {};
       rootPkg.peerDependencies[eslintPluginPkg.name] = version;
-      rootPkg.devDependencies = rootPkg.devDependencies || {};
-      rootPkg.devDependencies[eslintPluginPkg.name] = version;
 
       eslintPluginPkg.version = version;
       eslintPluginPkg.name = name.replace(
