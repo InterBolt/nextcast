@@ -20,6 +20,10 @@ function prepEslintPlugin() {
       const eslintPluginPkg = JSON.parse(
         readFileSync(pathToEslintPluginPackageJSON, "utf8")
       );
+      rootPkg.peerDependencies = rootPkg.peerDependencies || {};
+      rootPkg.peerDependencies[eslintPluginPkg.name] = version;
+      rootPkg.devDependencies = rootPkg.devDependencies || {};
+      rootPkg.devDependencies[eslintPluginPkg.name] = version;
 
       eslintPluginPkg.version = version;
       eslintPluginPkg.name = name.replace(
@@ -31,6 +35,7 @@ function prepEslintPlugin() {
         pathToEslintPluginPackageJSON,
         JSON.stringify(eslintPluginPkg, null, 2)
       );
+      writeFileSync(pathToRootPackageJSON, JSON.stringify(rootPkg, null, 2));
     },
   };
 }
