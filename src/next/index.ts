@@ -15,9 +15,9 @@ import * as Utils from "./utils";
 import type * as Types from "./types";
 import colors from "colors/safe";
 import logger from "./logger";
-import HDirHasher from "./classes/HDirHasher";
+import HHasher from "./classes/HHasher";
 
-const debouncer = new HDirHasher();
+const hasher = new HHasher();
 
 const getPackDirs = (dataDir: string) =>
   readdirSync(dataDir)
@@ -27,13 +27,13 @@ const getPackDirs = (dataDir: string) =>
 
 export async function attachDataLoader(code: string) {
   const callback = this.async();
-  const dataDir = resolve(Utils.getProjectRoot(), `.${constants.name}`);
+  const dataDir = Utils.getDataDir();
   const codemods = new Codemods(jscodeshift.withParser("tsx")(code));
   const names = getPackDirs(dataDir);
 
   names.forEach((name) => {
     const pathToData = resolve(
-      `.${constants.name}`,
+      Utils.getDataDir(),
       name,
       constants.dataFileName
     );
@@ -50,17 +50,13 @@ export async function attachDataLoader(code: string) {
 
 export async function rewriterLoader(code: string) {
   const callback = this.async();
-  const dataDir = resolve(Utils.getProjectRoot(), `.${constants.name}`);
+  const dataDir = Utils.getDataDir();
   const names = getPackDirs(dataDir);
   const resourcePath = this.resourcePath as string;
   let rewrite: string | undefined = undefined;
 
   names.forEach((name) => {
-    const pathToRewrites = resolve(
-      `.${constants.name}`,
-      name,
-      constants.rewritesFileName
-    );
+    const pathToRewrites = resolve(dataDir, name, constants.rewritesFileName);
     rewrite = (() => {
       try {
         return require(pathToRewrites);
@@ -168,21 +164,16 @@ const loadUserPacks = (inputDir: string) => {
   }
 
   const foundTsConfig = createTsConfigIfNotExists(inputDirPath);
-  debouncer.runWhenChanged(() => compileUserPacks(inputDirPath), {
+  hasher.runWhenChanged(() => compileUserPacks(inputDirPath), {
     namespace: "compile_micropacks",
-    dir: inputDirPath,
-    excludeFiles: ["tsconfig.json"],
+    watchDir: inputDirPath,
   });
   const pathToCompiledFile = resolve(
     inputDirPath,
     foundTsConfig.compilerOptions.outDir,
     "index.js"
   );
-  if (!existsSync(pathToCompiledFile)) {
-    throw new Error(
-      `${constants.name} error: could not find compiled file at ${pathToCompiledFile}`
-    );
-  }
+
   const packs = require(pathToCompiledFile).default;
 
   if (typeof packs === "undefined" || !Array.isArray(packs)) {
@@ -202,18 +193,16 @@ class Plugin {
     this.inputDir = options.inputDir;
   }
 
-  run = () => {
-    return debouncer.runWhenChanged(() => runMicropacks(this.packs), {
-      namespace: "ran_micropacks",
-    });
-  };
-
   apply(compiler: any) {
     compiler.hooks.beforeCompile.tapPromise(
       constants.name[0].toUpperCase() + constants.name.slice(1),
       async () => {
         this.packs = loadUserPacks(this.inputDir);
-        await this.run();
+
+        await hasher.runWhenChanged(() => runMicropacks(this.packs), {
+          namespace: "ran_micropacks",
+          watchDir: Utils.getProjectRoot(),
+        });
       }
     );
   }
@@ -224,7 +213,7 @@ export const withMicropack = (
   opts?: { inputDir?: string }
 ) => {
   const { inputDir = constants.userDir } = opts || {};
-  debouncer.init();
+  hasher.init();
 
   const webpack = (config: any, nextWebpackOptions: any) => {
     config.plugins.push(new Plugin({ inputDir }));

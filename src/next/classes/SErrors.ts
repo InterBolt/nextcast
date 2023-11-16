@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "fs";
 import { stripIndent } from "common-tags";
 import { isEqual, omit } from "lodash";
 import MicroStore from "./MicroStore/index";
+import * as Utils from "../utils";
 
 type LocPosition = {
   start: {
@@ -28,7 +29,6 @@ export interface IErrorOrWarning {
     line: string;
     column: string;
     source: string;
-    timestamp: number;
   };
   message: string;
 }
@@ -86,7 +86,7 @@ class SErrors {
           message,
           [
             [colors.bold("micro"), info.micro],
-            [colors.bold("file"), info.file.replace(process.cwd(), "")],
+            [colors.bold("file"), info.file],
             [colors.bold("line"), info.line],
             [colors.bold("column"), info.column],
           ],
@@ -127,11 +127,10 @@ class SErrors {
       info: {
         loc,
         micro: `${this.store.accessMicroName()}`,
-        file: filePath,
+        file: filePath.replace(Utils.getProjectRoot(), ""),
         line: `${line}`,
         column: `${column}`,
         source: `${source}`,
-        timestamp: Date.now(),
       },
       message: message.replaceAll(process.cwd(), ""),
     };
@@ -144,10 +143,7 @@ class SErrors {
       "errors",
     ]);
     const matchingError = preexistingErrors.find((preexistingError) =>
-      isEqual(
-        omit(preexistingError, ["info.timestamp"]),
-        omit(error, ["info.timestamp"])
-      )
+      isEqual(preexistingError, error)
     );
     if (matchingError) {
       return;
@@ -175,11 +171,10 @@ class SErrors {
       info: {
         loc,
         micro: `${this.store.accessMicroName()}`,
-        file: filePath,
+        file: filePath.replace(Utils.getProjectRoot(), ""),
         line: `${line}`,
         column: `${column}`,
         source: `${source}`,
-        timestamp: Date.now(),
       },
       message: message.replaceAll(process.cwd(), ""),
     };
@@ -194,10 +189,7 @@ class SErrors {
       "warnings",
     ]);
     const matchingWarning = preexistingErrors.find((preexistingError) =>
-      isEqual(
-        omit(preexistingError, ["info.timestamp"]),
-        omit(warning, ["info.timestamp"])
-      )
+      isEqual(preexistingError, warning)
     );
     if (matchingWarning) {
       return;

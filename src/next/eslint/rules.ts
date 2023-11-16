@@ -8,7 +8,7 @@ const reportErrorsOrWarnings = (
   context: Rule.RuleContext,
   level: "warning" | "error"
 ) => {
-  const dataDir = resolve(context.cwd, `.${constants.name}`);
+  const dataDir = resolve(context.cwd, constants.dataDirname);
   if (!existsSync(dataDir)) {
     return;
   }
@@ -27,8 +27,8 @@ const reportErrorsOrWarnings = (
 
   errorPaths.forEach((errorPath) => {
     const errors = JSON.parse(readFileSync(errorPath, "utf-8"));
-    const relevantErrors = errors.filter(
-      (e: IErrorOrWarning) => e.info.file === context.filename
+    const relevantErrors = errors.filter((e: IErrorOrWarning) =>
+      context.filename.endsWith(e.info.file)
     );
 
     relevantErrors.forEach((relevantError: IErrorOrWarning) => {

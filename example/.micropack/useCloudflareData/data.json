@@ -1,209 +1,140 @@
 [
   {
-    "payload": {
-      "args": [
-        "val"
-      ],
-      "routeName": "/about/(somegroup)/other/page"
-    },
-    "timestamp": 1700158450204
+    "args": [
+      ""
+    ],
+    "routeName": "/about/(somegroup)/other/page"
   },
   {
-    "payload": {
-      "args": [
-        "ff"
-      ],
-      "routeName": "/about/(somegroup)/other/page"
-    },
-    "timestamp": 1700158450210
+    "args": [
+      "ff"
+    ],
+    "routeName": "/about/(somegroup)/other/page"
   },
   {
-    "payload": {
-      "args": [
-        "WHATEVER"
-      ],
-      "routeName": "/about/(somegroup)/other/page"
-    },
-    "timestamp": 1700158450212
+    "args": [
+      "WHATEVER"
+    ],
+    "routeName": "/about/(somegroup)/other/page"
   },
   {
-    "payload": {
-      "args": [
-        "fromdynamicpage"
-      ],
-      "routeName": "/about/(somegroup)/other/page"
-    },
-    "timestamp": 1700158450215
+    "args": [
+      "fromdynamicpage"
+    ],
+    "routeName": "/about/(somegroup)/other/page"
   },
   {
-    "payload": {
-      "args": [
-        "SECOND"
-      ],
-      "routeName": "/about/(somegroup)/other/page"
-    },
-    "timestamp": 1700158450219
+    "args": [
+      "SECOND"
+    ],
+    "routeName": "/about/(somegroup)/other/page"
   },
   {
-    "payload": {
-      "args": [
-        "val"
-      ],
-      "routeName": "/about/(somegroup)/page"
-    },
-    "timestamp": 1700158450224
+    "args": [
+      ""
+    ],
+    "routeName": "/about/(somegroup)/page"
   },
   {
-    "payload": {
-      "args": [
-        "ff"
-      ],
-      "routeName": "/about/(somegroup)/page"
-    },
-    "timestamp": 1700158450231
+    "args": [
+      "ff"
+    ],
+    "routeName": "/about/(somegroup)/page"
   },
   {
-    "payload": {
-      "args": [
-        "WHATEVER"
-      ],
-      "routeName": "/about/(somegroup)/page"
-    },
-    "timestamp": 1700158450234
+    "args": [
+      "WHATEVER"
+    ],
+    "routeName": "/about/(somegroup)/page"
   },
   {
-    "payload": {
-      "args": [
-        "fromdynamicpage"
-      ],
-      "routeName": "/about/(somegroup)/page"
-    },
-    "timestamp": 1700158450238
+    "args": [
+      "fromdynamicpage"
+    ],
+    "routeName": "/about/(somegroup)/page"
   },
   {
-    "payload": {
-      "args": [
-        "SECOND"
-      ],
-      "routeName": "/about/(somegroup)/page"
-    },
-    "timestamp": 1700158450240
+    "args": [
+      "SECOND"
+    ],
+    "routeName": "/about/(somegroup)/page"
   },
   {
-    "payload": {
-      "args": [
-        "val"
-      ],
-      "routeName": "/about/inner/page"
-    },
-    "timestamp": 1700158450244
+    "args": [
+      ""
+    ],
+    "routeName": "/about/inner/page"
   },
   {
-    "payload": {
-      "args": [
-        "ff"
-      ],
-      "routeName": "/about/inner/page"
-    },
-    "timestamp": 1700158450246
+    "args": [
+      "ff"
+    ],
+    "routeName": "/about/inner/page"
   },
   {
-    "payload": {
-      "args": [
-        "WHATEVER"
-      ],
-      "routeName": "/about/inner/page"
-    },
-    "timestamp": 1700158450248
+    "args": [
+      "WHATEVER"
+    ],
+    "routeName": "/about/inner/page"
   },
   {
-    "payload": {
-      "args": [
-        "fromdynamicpage"
-      ],
-      "routeName": "/about/inner/page"
-    },
-    "timestamp": 1700158450252
+    "args": [
+      "fromdynamicpage"
+    ],
+    "routeName": "/about/inner/page"
   },
   {
-    "payload": {
-      "args": [
-        "SECOND"
-      ],
-      "routeName": "/about/inner/page"
-    },
-    "timestamp": 1700158450255
+    "args": [
+      "SECOND"
+    ],
+    "routeName": "/about/inner/page"
   },
   {
-    "payload": {
-      "args": [
-        "val"
-      ],
-      "routeName": "/about/page"
-    },
-    "timestamp": 1700158450259
+    "args": [
+      ""
+    ],
+    "routeName": "/about/page"
   },
   {
-    "payload": {
-      "args": [
-        "ff"
-      ],
-      "routeName": "/about/page"
-    },
-    "timestamp": 1700158450262
+    "args": [
+      "ff"
+    ],
+    "routeName": "/about/page"
   },
   {
-    "payload": {
-      "args": [
-        "WHATEVER"
-      ],
-      "routeName": "/about/page"
-    },
-    "timestamp": 1700158450265
+    "args": [
+      "WHATEVER"
+    ],
+    "routeName": "/about/page"
   },
   {
-    "payload": {
-      "args": [
-        "fromdynamicpage"
-      ],
-      "routeName": "/about/page"
-    },
-    "timestamp": 1700158450268
+    "args": [
+      "fromdynamicpage"
+    ],
+    "routeName": "/about/page"
   },
   {
-    "payload": {
-      "args": [
-        "SECOND"
-      ],
-      "routeName": "/about/page"
-    },
-    "timestamp": 1700158450271
+    "args": [
+      "SECOND"
+    ],
+    "routeName": "/about/page"
   },
   {
-    "payload": {
-      "args": [
-        "val"
-      ],
-      "routeName": "/page"
-    },
-    "timestamp": 1700158450278
+    "args": [
+      "val"
+    ],
+    "routeName": "/page"
   },
   {
-    "payload": {
-      "args": [
-        "ff"
-      ],
-      "routeName": "/page"
-    },
-    "timestamp": 1700158450280
+    "args": [
+      "ff"
+    ],
+    "routeName": "/page"
   },
   {
-    "payload": {
-      "args": [
-        "WHATEVER"
-      ],
-      "routeName": "/page"
-    },
-    "timestamp": 1700158450282
+    "args": [
+      "WHATEVER"
+    ],
+    "routeName": "/page"
   }
 ]

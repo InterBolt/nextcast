@@ -1,6 +1,7 @@
 import { basename, dirname, resolve } from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import appRootPath from "app-root-path";
+import constants from "./constants";
 
 const getNestedDepthRelativePath = (basePath: string, nestedPath: string) => {
   const nestDistance = nestedPath.replace(basePath, "").split("/").length - 1;
@@ -131,6 +132,10 @@ export const getProjectRoot = (): string => {
   throw new Error("Can't locate a NextJS project.");
 };
 
+export const getDataDir = () => {
+  return resolve(getProjectRoot(), constants.dataDirname);
+};
+
 export const getAppDir = (rootPath?: string): string => {
   if (!rootPath) {
     rootPath = getProjectRoot();
@@ -223,4 +228,34 @@ export const resolveImport = (filePath: string, importPath: string) => {
     ...(tsconfig?.compilerOptions?.paths || {}),
     ["*"]: ["node_modules/*"],
   });
+};
+
+export const addToGitignore = (dataDir: string, gitignored: Array<string>) => {
+  const projectRoot = getProjectRoot();
+  const dataDirPath = resolve(projectRoot, dataDir);
+  if (!existsSync(dataDirPath)) {
+    throw new Error(`Data directory ${dataDirPath} does not exist.`);
+  }
+  const gitignorePath = resolve(dataDirPath, ".gitignore");
+  if (!existsSync(gitignorePath)) {
+    writeFileSync(gitignorePath, "");
+  }
+  const currentGitignoreLines = readFileSync(gitignorePath, "utf8")
+    .split("\n")
+    .map((s: string) => s.trim())
+    .filter((s: string) => s);
+
+  const nextGitignoreLines = gitignored
+    .map((line) => {
+      if (!currentGitignoreLines.includes(line)) {
+        return line;
+      }
+    })
+    .map((line) => line);
+
+  if (nextGitignoreLines.length > 0) {
+    currentGitignoreLines.push("");
+  }
+  currentGitignoreLines.push(...nextGitignoreLines);
+  writeFileSync(gitignorePath, currentGitignoreLines.join("\n").trim());
 };

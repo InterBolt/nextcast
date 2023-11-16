@@ -9,11 +9,6 @@ import * as Utils from "../utils";
 import type * as Types from "../types";
 import constants from "../constants";
 
-export interface ICollectionItem {
-  payload: Types.JSONValue;
-  timestamp: number;
-}
-
 class SApp {
   private store: MicroStore;
   private traversals: STraversals;
@@ -89,22 +84,19 @@ class SApp {
     }
 
     const cachePath = this._pathAppCollection();
-    const dataset = this.store.reads.get<Array<ICollectionItem>>(cachePath);
+    const dataset = this.store.reads.get<Array<Types.JSONValue>>(cachePath);
 
     if (!Array.isArray(dataset)) {
       throw new Error(`Cannot push data to route because it is not an array.`);
     }
 
-    dataset.push({
-      payload: data,
-      timestamp: Date.now(),
-    });
+    dataset.push(data);
   };
 
   public getCollection = () =>
     JSON.parse(
       JSON.stringify(
-        this.store.reads.get<Array<ICollectionItem>>(
+        this.store.reads.get<Array<Types.JSONValue>>(
           this._pathAppCollection()
         ) || []
       )
@@ -157,7 +149,7 @@ class SApp {
 
     const cachePath = this._pathAppCollection();
     const collection =
-      this.store.reads.get<Array<ICollectionItem>>(cachePath) || [];
+      this.store.reads.get<Array<Types.JSONValue>>(cachePath) || [];
 
     this.overwriteProtection(dataDir);
     writeFileSync(

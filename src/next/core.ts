@@ -2,27 +2,26 @@ import { resolve } from "path";
 import { mkdirSync, existsSync } from "fs";
 import type * as Types from "./types";
 import * as Utils from "./utils";
-import constants from "./constants";
 import MicroStore from "./classes/MicroStore/index";
 import SApp from "./classes/SApp";
-import SErrors, { IErrorOrWarning } from "./classes/SErrors";
+import SErrors from "./classes/SErrors";
 import STraversals from "./classes/STraversals";
 
 const buildOptions = (
   name: string,
   coreOptions: any
 ): Types.PackCoreOptions => {
-  const baseDir = resolve(Utils.getProjectRoot(), `.${constants.name}`);
-  if (!existsSync(baseDir)) {
-    mkdirSync(baseDir);
-  }
-
-  const dataDir = resolve(baseDir, name);
+  const dataDir = Utils.getDataDir();
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir);
   }
 
-  coreOptions.dataDir = dataDir;
+  const micropackDir = resolve(dataDir, name);
+  if (!existsSync(micropackDir)) {
+    mkdirSync(micropackDir);
+  }
+
+  coreOptions.micropackDir = micropackDir;
   coreOptions.rewrite = !!coreOptions.rewrite || false;
   coreOptions.inputDir = coreOptions.inputDir || "micropacks";
 
@@ -104,11 +103,11 @@ const core = async <MicroConfig extends any>(
       });
     }
 
-    app.stashCollection(options.dataDir);
-    app.stashReducedCollection(options.dataDir, data);
-    app.stashErrors(options.dataDir, errors.getErrors() as any);
-    app.stashWarnings(options.dataDir, errors.getWarnings() as any);
-    app.stashRewrites(options.dataDir);
+    app.stashCollection(options.micropackDir);
+    app.stashReducedCollection(options.micropackDir, data);
+    app.stashErrors(options.micropackDir, errors.getErrors() as any);
+    app.stashWarnings(options.micropackDir, errors.getWarnings() as any);
+    app.stashRewrites(options.micropackDir);
 
     if (options.rewrite === true) {
       // we only throw if there are errors in the rewriter phase
@@ -120,7 +119,7 @@ const core = async <MicroConfig extends any>(
           `Errors found in micro ${micro.name}. See above for details.`
         );
       }
-      app.executeRewrites(options.dataDir);
+      app.executeRewrites(options.micropackDir);
     }
 
     const parsed = store.getParseCache();

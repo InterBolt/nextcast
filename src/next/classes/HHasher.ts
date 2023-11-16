@@ -13,11 +13,31 @@ import {
 import { createHash } from "crypto";
 import { glob } from "glob";
 
-class HDirHasher {
+class HHasher {
   public sourceCodeHash: string;
   public hashDir: string;
 
   constructor() {}
+
+  private _fixGlobs = (globs: Array<string>) => {
+    return globs.map((_s, i) => {
+      let globPattern = globs[i];
+      if (globPattern.startsWith("/")) {
+        globPattern = globPattern.slice(1);
+      }
+      if (globPattern.endsWith("/")) {
+        globPattern = globPattern.slice(0, -1);
+      }
+      const lastStr = globPattern.split("/").at(-1);
+      const secondToLastStr = globPattern.split("/").at(-2) || "";
+      const shouldAddDoubleAsterisk =
+        !lastStr.includes("*") && !secondToLastStr.includes("*");
+      if (shouldAddDoubleAsterisk) {
+        globPattern = `${globPattern}/**`;
+      }
+      return globPattern;
+    });
+  };
 
   private _safeDir = (dirOrPath: string) => {
     let path = (dirOrPath = isAbsolute(dirOrPath)
@@ -30,7 +50,7 @@ class HDirHasher {
     return path;
   };
 
-  private getDirectoryHash = (dir: string, excludeFiles?: Array<string>) => {
+  private _getDirectoryHash = (dir: string, excludeFiles?: Array<string>) => {
     const dirPath = this._safeDir(dir);
     const allFiles = [];
 
@@ -76,15 +96,17 @@ class HDirHasher {
     return createHash("sha256").update(hexes.join("")).digest("hex");
   };
 
-  private getSourceDirs = async () => {
-    const projectRootPath = Utils.getProjectRoot();
+  private _getSourceDir = async (dir: string) => {
+    const safeDir = this._safeDir(dir);
     let gitignored = [];
     let tsconfig = { exclude: [] };
-    const tsconfigPath = resolve(projectRootPath, "tsconfig.json");
+
+    const tsconfigPath = resolve(safeDir, "tsconfig.json");
     if (existsSync(tsconfigPath)) {
       tsconfig = JSON.parse(readFileSync(tsconfigPath, "utf8"));
     }
-    const gitignorePath = resolve(projectRootPath, ".gitignore");
+
+    const gitignorePath = resolve(safeDir, ".gitignore");
     if (existsSync(gitignorePath)) {
       gitignored = readFileSync(gitignorePath, "utf8")
         .split("\n")
@@ -92,68 +114,71 @@ class HDirHasher {
         .filter((s) => s)
         .filter((s) => !s.startsWith("# "));
     }
-    [gitignored, tsconfig.exclude].forEach((arr) => {
-      arr.forEach((_s, i) => {
-        if (arr[i].startsWith("/")) {
-          arr[i] = arr[i].slice(1);
-        }
-        if (arr[i].endsWith("/")) {
-          arr[i] = arr[i].slice(0, -1);
-        }
-        const lastStr = arr[i].split("/").at(-1);
-        const secondToLastStr = arr[i].split("/").at(-2) || "";
-        const shouldAddDoubleAsterisk =
-          !lastStr.includes("*") && !secondToLastStr.includes("*");
-        if (shouldAddDoubleAsterisk) {
-          arr[i] = `${arr[i]}/**`;
-        }
-      });
-    });
 
-    const excludes = [
-      ...gitignored,
-      ...tsconfig.exclude,
-      // some common sense excludes
-      // in case we can't tell from
-      // their gitignore or tsconfig
-      "dist/**",
-      ".next/**",
-      "node_modules/**",
-      `${constants.userDir}/**`,
-    ];
     const includes = ["**/*"];
     const includedDirectories = [];
+    const includedFiles = [];
     const matches = await glob(includes, {
-      cwd: projectRootPath,
-      ignore: excludes,
+      cwd: safeDir,
       dot: false,
+      ignore: [
+        ...this._fixGlobs(gitignored),
+        ...this._fixGlobs(tsconfig.exclude),
+        // some common sense excludes
+        // in case we can't tell from
+        // their gitignore or tsconfig
+        ...constants.watchExcludes,
+      ],
     });
 
-    matches.forEach((match) => {
-      const directory = dirname(match);
-      if (!includedDirectories.includes(directory)) {
-        includedDirectories.push(directory);
-      }
-    });
+    matches
+      // filter out nested dot folders since that will rarely be
+      // source code.
+      .filter((match) => !match.includes("/."))
+      .forEach((match) => {
+        const directory = dirname(match);
+        if (
+          directory === "." &&
+          statSync(resolve(safeDir, match)).isFile() &&
+          !includedFiles.includes(match)
+        ) {
+          includedFiles.push(match);
+        }
+        if (!includedDirectories.includes(directory)) {
+          includedDirectories.push(directory);
+        }
+      });
 
-    const dirs = includedDirectories.filter((d) => d !== ".").sort();
-    return dirs;
+    return {
+      dirs: includedDirectories
+        .filter((d) => d !== ".")
+        .sort()
+        .map((dir) => resolve(safeDir, dir)),
+      files: includedFiles.sort().map((file) => resolve(safeDir, file)),
+    };
   };
 
-  private getSourceCodeHash = async (excludeFiles?: Array<string>) => {
-    const sourceDirs = await this.getSourceDirs();
+  private _getSourceCodeHash = async (dir: string) => {
+    const { dirs: sourceDirs, files } = await this._getSourceDir(dir);
     return createHash("sha256")
       .update(
-        sourceDirs
-          .map((dir) => this.getDirectoryHash(dir, excludeFiles))
-          .filter((s) => s)
-          .join("")
+        files
+          .map((file) =>
+            createHash("sha256")
+              .update(readFileSync(file, "utf8"))
+              .digest("hex")
+          )
+          .join("") +
+          sourceDirs
+            .map((dir) => this._getDirectoryHash(dir))
+            .filter((s) => s)
+            .join("")
       )
       .digest("hex");
   };
 
   public init = () => {
-    const dataDir = resolve(Utils.getProjectRoot(), `.${constants.name}`);
+    const dataDir = Utils.getDataDir();
     if (!existsSync(dataDir)) {
       mkdirSync(dataDir);
     }
@@ -162,6 +187,8 @@ class HDirHasher {
     if (!existsSync(this.hashDir)) {
       mkdirSync(this.hashDir);
     }
+
+    Utils.addToGitignore(dataDir, [`/${constants.hashDir}`]);
 
     const filesInHashDir = readdirSync(this.hashDir)
       .map((name) => resolve(this.hashDir, name))
@@ -172,21 +199,14 @@ class HDirHasher {
 
   public runWhenChanged = async <Run extends (...args: any[]) => any>(
     run: Run,
-    opts?: {
-      namespace?: string;
-      dir?: string;
-      excludeFiles?: string[];
+    opts: {
+      namespace: string;
+      watchDir: string;
     }
   ): Promise<ReturnType<Run> | undefined> => {
-    const {
-      excludeFiles = [],
-      namespace = "sourcecode",
-      dir = null,
-    } = opts || {};
+    const { namespace = "sourcecode", watchDir = null } = opts;
 
-    const hash = dir
-      ? this.getDirectoryHash(this._safeDir(dir), excludeFiles)
-      : await this.getSourceCodeHash();
+    const hash = await this._getSourceCodeHash(watchDir);
     const cachePath = resolve(this.hashDir, `${namespace}.txt`);
 
     const cachedHash = (() => {
@@ -209,4 +229,4 @@ class HDirHasher {
   };
 }
 
-export default HDirHasher;
+export default HHasher;

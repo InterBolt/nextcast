@@ -1,4 +1,3 @@
-// import { JSCodeshift, Collection } from "jscodeshift";
 import type MicroStore from "./classes/MicroStore";
 import type SApp from "./classes/SApp";
 import type SErrors from "./classes/SErrors";
@@ -93,5 +92,5 @@ export class Pack<Config extends Record<string, any> = any>
 export type PackCoreOptions = {
   inputDir?: string;
   rewrite?: boolean;
-  dataDir?: string;
+  micropackDir?: string;
 };
