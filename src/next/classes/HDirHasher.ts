@@ -119,8 +119,9 @@ class HDirHasher {
       "dist/**",
       ".next/**",
       "node_modules/**",
+      `${constants.userDir}/**`,
     ];
-    const includes = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"];
+    const includes = ["**/*"];
     const includedDirectories = [];
     const matches = await glob(includes, {
       cwd: projectRootPath,
@@ -135,10 +136,7 @@ class HDirHasher {
       }
     });
 
-    const dirs = includedDirectories
-      .filter((d) => d !== ".")
-      .slice(1)
-      .sort();
+    const dirs = includedDirectories.filter((d) => d !== ".").sort();
     return dirs;
   };
 

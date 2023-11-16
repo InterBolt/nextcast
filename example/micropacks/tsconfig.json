@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "outDir": "../dist",
+    "target": "ESNext",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "allowJs": true,
+    "esModuleInterop": true
+  },
+  "include": [
+    "./**/*.ts",
+    "./**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
