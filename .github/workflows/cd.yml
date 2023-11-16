@@ -20,6 +20,7 @@ jobs:
       - run: npm ci
       - run: npm run ci:build
       - run: npm run ci:test
+      - run: npm run ci:add_eslint_plugin
       - run: |
           npm config set '//registry.npmjs.org/:_authToken' "${NODE_AUTH_TOKEN}"
           npm publish --access public
@@ -27,4 +28,3 @@ jobs:
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_AUTH_TOKEN}}
-      - run: npm install -D @interbolt/eslint-plugin-micropack@latest

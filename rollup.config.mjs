@@ -22,8 +22,10 @@ function prepEslintPlugin() {
       );
       rootPkg.peerDependencies = rootPkg.peerDependencies || {};
       rootPkg.peerDependencies[eslintPluginPkg.name] = version;
-      rootPkg.devDependencies = rootPkg.devDependencies || {};
-      rootPkg.devDependencies[eslintPluginPkg.name] = version;
+      rootPkg.scripts = rootPkg.scripts || {};
+      rootPkg.scripts[
+        "ci:add_eslint_plugin"
+      ] = `npm install @interbolt/eslint-plugin-micropack@${version}`;
 
       eslintPluginPkg.version = version;
       eslintPluginPkg.name = name.replace(
