@@ -4,45 +4,47 @@ import { readFileSync, writeFileSync } from "fs";
 import semver from "semver";
 import { execSync } from "child_process";
 
-const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-
-const currentPkg = JSON.parse(
-  readFileSync(resolve(rootDir, "package.json"), "utf-8")
-);
-const pkgName = "nextcast";
-const pkgOrg = pkgName.includes("/") ? pkgName.split("/")[0] : "";
-const pkgTitle = pkgName.includes("/") ? pkgName.split("/")[1] : pkgName;
-const pkgNextVersion = (() => {
-  try {
-    return semver.inc(
-      execSync(`npm view ${pkgName} version`, {
-        encoding: "utf-8",
-        stdio: "ignore",
-      }).trim(),
-      "prerelease"
-    );
-  } catch (err) {
-    return `0.1.0-alpha.1`;
-  }
-})();
-
-if (semver.compare(pkgNextVersion, currentPkg.version) === -1) {
-  const errorMessages = [
-    `The current version of ${pkgName} is ${currentPkg.version}.`,
-    `The next version of ${pkgName} cannot be a lower version: ${pkgNextVersion}.`,
-    `It's possible the npm view version command failed. Check your network.`,
-  ];
-  throw new Error(errorMessages.join("\n"));
-}
-
-const pluginName = pkgOrg
-  ? `${pkgOrg}/eslint-plugin-${pkgTitle}`
-  : `eslint-plugin-${pkgName}`;
-
 const pluginPrerelease = () => {
   return {
     name: "prerelease",
-    buildEnd() {
+    buildEnd: async () => {
+      const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+      const currentPkg = JSON.parse(
+        readFileSync(resolve(rootDir, "package.json"), "utf-8")
+      );
+      const pkgName = "nextcast";
+      const pkgOrg = pkgName.includes("/") ? pkgName.split("/")[0] : "";
+      const pkgTitle = pkgName.includes("/") ? pkgName.split("/")[1] : pkgName;
+      const pkgNextVersion = (() => {
+        try {
+          return semver.inc(
+            execSync(`npm view ${pkgName} version`, {
+              encoding: "utf-8",
+              stdio: "ignore",
+            }).trim(),
+            "prerelease"
+          );
+        } catch (err) {
+          return currentPkg.version;
+        }
+      })();
+
+      console.log("pkgNextVersion", pkgNextVersion, currentPkg.version);
+
+      if (semver.compare(pkgNextVersion, currentPkg.version) === -1) {
+        const errorMessages = [
+          `The current version of ${pkgName} is ${currentPkg.version}.`,
+          `The next version of ${pkgName} cannot be a lower version: ${pkgNextVersion}.`,
+          `It's possible the npm view version command failed. Check your network.`,
+        ];
+        throw new Error(errorMessages.join("\n"));
+      }
+
+      const pluginName = pkgOrg
+        ? `${pkgOrg}/eslint-plugin-${pkgTitle}`
+        : `eslint-plugin-${pkgName}`;
+
       const sharedPKG = {
         homepage: `https://github.com/InterBolt/${pkgName}#readme`,
         repository: {
