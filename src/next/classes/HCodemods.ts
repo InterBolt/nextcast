@@ -1,5 +1,5 @@
-import type * as Types from "../types";
 import jscodeshift, { Collection } from "jscodeshift";
+import { JSONValue } from "../types";
 
 class HCodemods {
   public collection: Collection;
@@ -9,7 +9,7 @@ class HCodemods {
   }
 
   public addDataToHTMLTag = (
-    jsonData: Types.JSONValue,
+    jsonData: JSONValue,
     attributeName: `data-${string}`,
     htmlTag: "html" | "body"
   ) => {

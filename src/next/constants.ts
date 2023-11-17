@@ -1,7 +1,7 @@
 const constants = {
-  userDir: "micropacks",
-  name: "micropack",
-  dataDirname: `.micropack`,
+  userDir: "nextcasts",
+  name: "nextcast",
+  dataDirname: `.nextcast`,
   dataFileName: "data.json",
   rewritesFileName: "rewrites.json",
   errorsFileName: "errors.json",
@@ -33,7 +33,7 @@ const constants = {
     "out/**",
     ".next/**",
     "node_modules/**",
-    `micropacks/**`,
+    `nextcasts/**`,
   ],
 };
 

@@ -3,6 +3,16 @@ import { existsSync, readFileSync, writeFileSync } from "fs";
 import appRootPath from "app-root-path";
 import constants from "./constants";
 
+export const stripIndent = (str: string) => {
+  const match = str.match(/^[^\S\n]*(?=\S)/gm);
+  const indent = match && Math.min(...match.map((el) => el.length));
+  if (indent) {
+    const regexp = new RegExp(`^.{${indent}}`, "gm");
+    return str.replace(regexp, "");
+  }
+  return str;
+};
+
 const getNestedDepthRelativePath = (basePath: string, nestedPath: string) => {
   const nestDistance = nestedPath.replace(basePath, "").split("/").length - 1;
   return [...Array(nestDistance).keys()].map(() => "..").join("/");

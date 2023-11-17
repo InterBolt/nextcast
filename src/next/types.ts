@@ -1,8 +1,8 @@
-import type MicroStore from "./classes/MicroStore";
+import parser from "@babel/parser";
+import type Store from "./classes/Store";
 import type SApp from "./classes/SApp";
 import type SErrors from "./classes/SErrors";
 import type STraversals from "./classes/STraversals";
-import parser from "@babel/parser";
 
 interface JSONArray extends Array<JSONValue> {}
 
@@ -21,14 +21,17 @@ export type ProjectInfo = {
   tsconfig?: any;
 };
 
-export type SharedContext<Config extends Record<string, any> = any> = {
+export type SharedCtx<Config extends Record<string, any> = any> = {
   config: Config;
   project: ProjectInfo;
-  parse: MicroStore["parse"];
-  traverse: STraversals["traverse"];
-  codemod: STraversals["codemod"];
+  parse: Store["parse"];
+  babelTraverse: STraversals["babelTraverse"];
+  jscodeshift: STraversals["jscodeshift"];
   getDetailedImports: STraversals["getDetailedImports"];
+  getSourceFiles: SApp["getSourceFiles"];
   getRoutes: SApp["getRoutes"];
+  getClientComponents: SApp["getClientComponents"];
+  getServerComponents: SApp["getServerComponents"];
   getErrors: SErrors["getErrors"];
   reportError: SErrors["reportError"];
   getWarnings: SErrors["getWarnings"];
@@ -36,41 +39,43 @@ export type SharedContext<Config extends Record<string, any> = any> = {
   collect: SApp["collect"];
 };
 
-export type CollectorContext<Config extends Record<string, any> = any> = {
+export type CollectorCtx<Config extends Record<string, any> = any> = {
   getCollection: SApp["getCollection"];
-} & SharedContext<Config>;
+} & SharedCtx<Config>;
 
-export type ReducerContext<Config extends Record<string, any> = any> = {
+export type ReducerCtx<Config extends Record<string, any> = any> = {
   collection: JSONValue;
-} & SharedContext<Config>;
+} & SharedCtx<Config>;
 
-export type RewriterContext<
+export type RewriterCtx<
   Config extends Record<string, any> = any,
   Reduced extends JSONValue = JSONValue
 > = {
   collection: JSONValue;
   data: Reduced;
-} & SharedContext<Config>;
+} & SharedCtx<Config>;
 
 export type Route = {
   name: string;
   entries: Array<string>;
   files: Array<string>;
+  serverComponents: Array<string>;
+  clientComponents: Array<string>;
 };
 
 export type Collector<Config extends Record<string, any> = any> = (
-  ctx: CollectorContext<Config>
+  ctx: CollectorCtx<Config>
 ) => Promise<void>;
 
 export type Rewriter<Config extends Record<string, any> = any> = (
-  ctx: RewriterContext<Config>
+  ctx: RewriterCtx<Config>
 ) => Promise<void>;
 
 export type Reducer<Config extends Record<string, any> = any> = (
-  ctx: ReducerContext<Config>
+  ctx: ReducerCtx<Config>
 ) => Promise<JSONValue>;
 
-export interface MicroPackBase<Config extends Record<string, any>> {
+export interface PluginBase<Config extends Record<string, any>> {
   name: string;
   config: Config;
   collector?: Collector<Config>;
@@ -78,8 +83,8 @@ export interface MicroPackBase<Config extends Record<string, any>> {
   rewriter?: Rewriter<Config>;
 }
 
-export class Pack<Config extends Record<string, any> = any>
-  implements MicroPackBase<Config>
+export class CustomPlugin<Config extends Record<string, any> = any>
+  implements PluginBase<Config>
 {
   public name: string;
   public config: Config;
@@ -89,8 +94,8 @@ export class Pack<Config extends Record<string, any> = any>
   public rewriter?: Rewriter<Config>;
 }
 
-export type PackCoreOptions = {
+export type CoreOptions = {
   inputDir?: string;
   rewrite?: boolean;
-  micropackDir?: string;
+  nextcastDir?: string;
 };

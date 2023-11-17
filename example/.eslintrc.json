@@ -1,8 +1,8 @@
 {
   "extends": ["next/core-web-vitals"],
-  "plugins": ["@interbolt/micropack"],
+  "plugins": ["@interbolt/nextcast"],
   "rules": {
-    "@interbolt/micropack/error": 2,
-    "@interbolt/micropack/warn": 1
+    "@interbolt/nextcast/error": 2,
+    "@interbolt/nextcast/warn": 1
   }
 }

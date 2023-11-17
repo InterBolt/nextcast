@@ -1,5 +1,4 @@
 import { isAbsolute, resolve } from "path";
-import jscodeshift from "jscodeshift";
 import {
   existsSync,
   readFileSync,
@@ -8,18 +7,19 @@ import {
   writeFileSync,
 } from "fs";
 import { execSync } from "child_process";
+import jscodeshift from "jscodeshift";
+import colors from "colors/safe";
 import core from "./core";
 import Codemods from "./classes/HCodemods";
 import constants from "./constants";
 import * as Utils from "./utils";
 import type * as Types from "./types";
-import colors from "colors/safe";
 import logger from "./logger";
 import HHasher from "./classes/HHasher";
 
 const hasher = new HHasher();
 
-const getPackDirs = (dataDir: string) =>
+const getPluginDirs = (dataDir: string) =>
   readdirSync(dataDir)
     .filter((name) => !["node_modules", "dist"].includes(name))
     .filter((name) => !name.startsWith("."))
@@ -29,7 +29,7 @@ export async function attachDataLoader(code: string) {
   const callback = this.async();
   const dataDir = Utils.getDataDir();
   const codemods = new Codemods(jscodeshift.withParser("tsx")(code));
-  const names = getPackDirs(dataDir);
+  const names = getPluginDirs(dataDir);
 
   names.forEach((name) => {
     const pathToData = resolve(
@@ -51,7 +51,7 @@ export async function attachDataLoader(code: string) {
 export async function rewriterLoader(code: string) {
   const callback = this.async();
   const dataDir = Utils.getDataDir();
-  const names = getPackDirs(dataDir);
+  const names = getPluginDirs(dataDir);
   const resourcePath = this.resourcePath as string;
   let rewrite: string | undefined = undefined;
 
@@ -74,7 +74,7 @@ export async function rewriterLoader(code: string) {
   }
 }
 
-const runMicropacks = async (packs: Array<Types.Pack<any>>) => {
+const runNextcasts = async (packs: Array<Types.CustomPlugin<any>>) => {
   let previouslyParsed: Record<string, Types.ParsedBabel> = {};
   for (let i = 0; i < packs.length; i++) {
     const startTime = Date.now();
@@ -90,7 +90,7 @@ const runMicropacks = async (packs: Array<Types.Pack<any>>) => {
     errorLogs.map((args) => console.log(...args));
 
     logger.success(
-      `Ran micropack: ${colors.blue(packs[i].name)} in ${(
+      `Ran nextcast: ${colors.blue(packs[i].name)} in ${(
         (Date.now() - startTime) /
         1000
       ).toFixed(2)}s`
@@ -134,9 +134,9 @@ const createTsConfigIfNotExists = (inputDirPath: string) => {
   return foundTsConfig;
 };
 
-const compileUserPacks = (inputDirPath: string) => {
+const compileUserPlugins = (inputDirPath: string) => {
   const startTime = Date.now();
-  logger.wait(`One sec, gotta compile your micropacks...`);
+  logger.wait(`One sec, gotta compile your nextcasts...`);
 
   execSync(`npx tsc -p ${resolve(inputDirPath, "tsconfig.json")}`, {
     cwd: Utils.getProjectRoot(),
@@ -149,7 +149,7 @@ const compileUserPacks = (inputDirPath: string) => {
   );
 };
 
-const loadUserPacks = (inputDir: string) => {
+const loadUserPlugins = (inputDir: string) => {
   const inputDirPath = mapInputDir(inputDir);
 
   if (!existsSync(inputDirPath)) {
@@ -164,8 +164,8 @@ const loadUserPacks = (inputDir: string) => {
   }
 
   const foundTsConfig = createTsConfigIfNotExists(inputDirPath);
-  hasher.runWhenChanged(() => compileUserPacks(inputDirPath), {
-    namespace: "compile_micropacks",
+  hasher.runWhenChanged(() => compileUserPlugins(inputDirPath), {
+    namespace: "compile_nextcasts",
     watchDir: inputDirPath,
   });
   const pathToCompiledFile = resolve(
@@ -182,12 +182,12 @@ const loadUserPacks = (inputDir: string) => {
     );
   }
 
-  return packs as Array<Types.Pack<any>>;
+  return packs as Array<Types.CustomPlugin<any>>;
 };
 
 class Plugin {
   public inputDir: string;
-  public packs: Array<Types.Pack<any>>;
+  public packs: Array<Types.CustomPlugin<any>>;
 
   constructor(options: { inputDir: string }) {
     this.inputDir = options.inputDir;
@@ -197,10 +197,10 @@ class Plugin {
     compiler.hooks.beforeCompile.tapPromise(
       constants.name[0].toUpperCase() + constants.name.slice(1),
       async () => {
-        this.packs = loadUserPacks(this.inputDir);
+        this.packs = loadUserPlugins(this.inputDir);
 
-        await hasher.runWhenChanged(() => runMicropacks(this.packs), {
-          namespace: "ran_micropacks",
+        await hasher.runWhenChanged(() => runNextcasts(this.packs), {
+          namespace: "ran_nextcasts",
           watchDir: Utils.getProjectRoot(),
         });
       }
@@ -208,10 +208,7 @@ class Plugin {
   }
 }
 
-export const withMicropack = (
-  nextConfig: any,
-  opts?: { inputDir?: string }
-) => {
+export const withNextcast = (nextConfig: any, opts?: { inputDir?: string }) => {
   const { inputDir = constants.userDir } = opts || {};
   hasher.init();
 

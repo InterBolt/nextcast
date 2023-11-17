@@ -1,5 +1,6 @@
 import { resolve } from "path";
 import HookCalls from "./HookCalls";
+import UseContextSelector from "./UseContextSelector";
 
 const macropacks = [
   new HookCalls(
@@ -8,8 +9,9 @@ const macropacks = [
       exportIdentifier: "default",
       allowedArgTypes: ["StringLiteral"],
     },
-    "useCloudflareData"
+    "cloudflare_data"
   ),
+  new UseContextSelector("context_selector"),
 ];
 
 export default macropacks;

@@ -5,9 +5,8 @@ import {
 } from "jscodeshift";
 import colors from "colors/safe";
 import { existsSync, readFileSync } from "fs";
-import { stripIndent } from "common-tags";
-import { isEqual, omit } from "lodash";
-import MicroStore from "./MicroStore/index";
+import { isEqual } from "lodash";
+import Store from "./Store/index";
 import * as Utils from "../utils";
 
 type LocPosition = {
@@ -24,7 +23,7 @@ type LocPosition = {
 export interface IErrorOrWarning {
   info: {
     loc: LocPosition;
-    micro: string;
+    plugin: string;
     file: string;
     line: string;
     column: string;
@@ -34,9 +33,9 @@ export interface IErrorOrWarning {
 }
 
 class SErrors {
-  private store: MicroStore;
+  private store: Store;
 
-  constructor(store: MicroStore) {
+  constructor(store: Store) {
     this.store = store;
     this.store.registerAccessPath(["errors"], []);
     this.store.registerAccessPath(["warnings"], []);
@@ -85,12 +84,12 @@ class SErrors {
         this.buildMessage(
           message,
           [
-            [colors.bold("micro"), info.micro],
+            [colors.bold("plugin"), info.plugin],
             [colors.bold("file"), info.file],
             [colors.bold("line"), info.line],
             [colors.bold("column"), info.column],
           ],
-          colors.red(stripIndent`${info.source}`)
+          colors.red(Utils.stripIndent(info.source))
         ),
       ]);
   };
@@ -126,7 +125,7 @@ class SErrors {
     const error = {
       info: {
         loc,
-        micro: `${this.store.accessMicroName()}`,
+        plugin: `${this.store.accessMicroName()}`,
         file: filePath.replace(Utils.getProjectRoot(), ""),
         line: `${line}`,
         column: `${column}`,
@@ -170,7 +169,7 @@ class SErrors {
     const warning = {
       info: {
         loc,
-        micro: `${this.store.accessMicroName()}`,
+        plugin: `${this.store.accessMicroName()}`,
         file: filePath.replace(Utils.getProjectRoot(), ""),
         line: `${line}`,
         column: `${column}`,

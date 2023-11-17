@@ -1,7 +1,7 @@
 import traverse, { TraverseOptions } from "@babel/traverse";
 import jscodeshift from "jscodeshift";
 import { readFileSync, existsSync } from "fs";
-import MicroStore from "./MicroStore/index";
+import Store from "./Store/index";
 import * as Utils from "../utils";
 
 type ResolvedImport = {
@@ -11,15 +11,15 @@ type ResolvedImport = {
 };
 
 class STraversals {
-  private store: MicroStore;
+  private store: Store;
 
-  constructor(store: MicroStore) {
+  constructor(store: Store) {
     this.store = store;
     this.store.registerAccessPath(["used_tree"], {});
     this.store.registerAccessPath(["detailed_imports"], {});
   }
 
-  public codemod = (filePath: string) => {
+  public jscodeshift = (filePath: string) => {
     if (!existsSync(filePath)) {
       throw new Error(`Cannot parse ${filePath} because it does not exist.`);
     }
@@ -28,7 +28,7 @@ class STraversals {
     return jscodeshift.withParser("tsx")(sourceCode);
   };
 
-  public traverse = (filePath: string, options: TraverseOptions) => {
+  public babelTraverse = (filePath: string, options: TraverseOptions) => {
     return traverse(this.store.parse(filePath), options);
   };
 
@@ -42,7 +42,7 @@ class STraversals {
     }
 
     const detailedImports: Array<ResolvedImport> = [];
-    this.traverse(filePath, {
+    this.babelTraverse(filePath, {
       CallExpression: (path) => {
         if (path.node.callee.type !== "Import") {
           return;

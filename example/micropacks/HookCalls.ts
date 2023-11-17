@@ -1,4 +1,4 @@
-import { Micro } from "@interbolt/micropack";
+import { TNextcast } from "@interbolt/nextcast";
 
 type Config = {
   path: string;
@@ -6,17 +6,16 @@ type Config = {
   allowedArgTypes?: Array<string>;
 };
 
-class HookCalls extends Micro.Pack {
+class HookCalls implements TNextcast.CustomPlugin {
   declare config: Config;
   declare name: string;
 
   constructor(config: Config, name: string) {
-    super()
     this.config = config;
     this.name = name;
   }
 
-  public collector: Micro.Collector = async (ctx) => {
+  public collector: TNextcast.Collector = async (ctx) => {
     const { getRoutes, traverse, collect, reportError, getDetailedImports } =
       ctx;
     const { allowedArgTypes, exportIdentifier, path: fnPath } = this.config;
@@ -77,13 +76,13 @@ class HookCalls extends Micro.Pack {
     });
   };
 
-  public reducer: Micro.Reducer = async (ctx) => {
+  public reducer: TNextcast.Reducer = async (ctx) => {
     const { collection } = ctx;
 
     return collection;
   };
 
-  public rewriter: Micro.Rewriter = async (ctx) => {
+  public rewriter: TNextcast.Rewriter = async (ctx) => {
     return;
   };
 }

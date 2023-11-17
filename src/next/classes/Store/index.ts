@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "fs";
 import { set } from "lodash";
 import * as parser from "@babel/parser";
-import type * as Types from "../../types";
+import type { ParsedBabel } from "../../types";
 import { Reads, Writes } from "./queries";
 
 const STORE_PATH_DELIMITER = ".0BslO9.";
@@ -20,23 +20,23 @@ const uninitializedErrorMessage = `Store not initialized. Must call _dangerously
 const endedErrorMessage = `Store is closed. We already called _dangerouslyEndMicro().`;
 
 type THistory = Pick<
-  MicroStore,
+  Store,
   "_unsafeAccessRegisters" | "_unsafeStore" | "_unsafeMicroName"
 >;
 
-class MicroStore {
+class Store {
   public _unsafeAccessRegisters: Array<Array<string>> = [];
   public _unsafeStore: any = {};
   public _unsafeMicroName: string;
   public _unsafeHistory: Array<THistory> = [];
 
   // by default, these are set to throw errors any time they are accessed
-  // this should prevent any accidental access before the micro is started
+  // this should prevent any accidental access before the plugin is started
   public reads: Reads = prohibitAccessProxy(uninitializedErrorMessage);
   public writes: Writes = prohibitAccessProxy(uninitializedErrorMessage);
 
   public getHistory = () => {
-    return this._unsafeHistory.map((history) => new MicroStore(history));
+    return this._unsafeHistory.map((history) => new Store(history));
   };
 
   constructor(cacheHistory?: THistory) {
@@ -54,13 +54,11 @@ class MicroStore {
   };
 
   public getParseCache = () =>
-    this.reads.get<Record<string, Types.ParsedBabel>>(
-      this._safePath(["parsed"])
-    );
+    this.reads.get<Record<string, ParsedBabel>>(this._safePath(["parsed"]));
 
   public accessMicroName = () => {
     if (typeof this._unsafeMicroName === "undefined") {
-      throw new Error(`Cannot set cache without a micro name.`);
+      throw new Error(`Cannot set cache without a plugin name.`);
     }
     return this._unsafeMicroName;
   };
@@ -128,7 +126,7 @@ class MicroStore {
     }) as TWrites;
   };
 
-  public parse = (filePath: string): Types.ParsedBabel => {
+  public parse = (filePath: string): ParsedBabel => {
     if (!existsSync(filePath)) {
       throw new Error(`Cannot parse ${filePath} because it does not exist.`);
     }
@@ -148,12 +146,9 @@ class MicroStore {
       babelOptions.plugins.push("typescript");
     }
 
-    const returnValue: Types.ParsedBabel = parser.parse(
-      sourceCode,
-      babelOptions
-    );
+    const returnValue: ParsedBabel = parser.parse(sourceCode, babelOptions);
 
-    this.writes.merge<Types.ParsedBabel>(cachePath, {
+    this.writes.merge<ParsedBabel>(cachePath, {
       [filePath]: returnValue,
     });
 
@@ -193,10 +188,10 @@ class MicroStore {
   };
 
   public _dangerouslyStartMicro = (
-    microName: string,
-    preparsed: Record<string, Types.ParsedBabel> = null
+    pluginName: string,
+    preparsed: Record<string, ParsedBabel> = null
   ) => {
-    this._unsafeMicroName = microName;
+    this._unsafeMicroName = pluginName;
     this._unsafeAccessRegisters = [];
     this._unsafeStore = {};
 
@@ -216,10 +211,10 @@ class MicroStore {
     this._unsafeAccessRegisters = [];
     this._unsafeMicroName = undefined;
 
-    // throw error on access after micro is ended
+    // throw error on access after plugin is ended
     this.reads = prohibitAccessProxy(endedErrorMessage);
     this.writes = prohibitAccessProxy(endedErrorMessage);
   };
 }
 
-export default MicroStore;
+export default Store;

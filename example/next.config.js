@@ -1,4 +1,4 @@
-const { withMicropack } = require("@interbolt/micropack");
+const { withNextcast } = require("@interbolt/nextcast");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -6,4 +6,4 @@ const nextConfig = {
   trailingSlash: true,
 };
 
-module.exports = withMicropack(nextConfig);
+module.exports = withNextcast(nextConfig);

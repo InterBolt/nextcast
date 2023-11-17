@@ -4,16 +4,17 @@ import { glob } from "glob";
 import type { Collection } from "jscodeshift";
 import type STraversals from "./STraversals";
 import type { IErrorOrWarning } from "./SErrors";
-import MicroStore from "./MicroStore/index";
+import Store from "./Store/index";
 import * as Utils from "../utils";
-import type * as Types from "../types";
 import constants from "../constants";
+import { JSONValue, Route } from "../types";
+import { uniq } from "lodash";
 
 class SApp {
-  private store: MicroStore;
+  private store: Store;
   private traversals: STraversals;
 
-  constructor(store: MicroStore, traversals: STraversals) {
+  constructor(store: Store, traversals: STraversals) {
     this.traversals = traversals;
     this.store = store;
   }
@@ -47,6 +48,34 @@ class SApp {
     return ["route_type_collection"] as const;
   };
 
+  private _mapToComponentTypes = (
+    files: Array<string>
+  ): { clientComponents: Array<string>; serverComponents: Array<string> } => {
+    return files
+      .map((filePath) => {
+        const fileContents = readFileSync(filePath, "utf8");
+        const lines = fileContents.split("\n");
+        return lines.some(
+          (line) =>
+            line.trim() === `"use client"` ||
+            line.trim() === `"use client";` ||
+            line.trim() === `'use client'` ||
+            line.trim() === `'use client';`
+        );
+      })
+      .reduce(
+        (accum, hasClientDirective, i) => {
+          if (hasClientDirective) accum.clientComponents.push(files[i]);
+          else accum.serverComponents.push(files[i]);
+          return accum;
+        },
+        {
+          clientComponents: [],
+          serverComponents: [],
+        }
+      );
+  };
+
   public createRewriter = (routeName: string, fallbackFilePath: string) => {
     if (!existsSync(fallbackFilePath)) {
       throw new Error(
@@ -74,7 +103,7 @@ class SApp {
     };
   };
 
-  public collect = (data: Types.JSONValue) => {
+  public collect = (data: JSONValue) => {
     try {
       JSON.stringify(data);
     } catch (err) {
@@ -84,7 +113,7 @@ class SApp {
     }
 
     const cachePath = this._pathAppCollection();
-    const dataset = this.store.reads.get<Array<Types.JSONValue>>(cachePath);
+    const dataset = this.store.reads.get<Array<JSONValue>>(cachePath);
 
     if (!Array.isArray(dataset)) {
       throw new Error(`Cannot push data to route because it is not an array.`);
@@ -96,18 +125,29 @@ class SApp {
   public getCollection = () =>
     JSON.parse(
       JSON.stringify(
-        this.store.reads.get<Array<Types.JSONValue>>(
-          this._pathAppCollection()
-        ) || []
+        this.store.reads.get<Array<JSONValue>>(this._pathAppCollection()) || []
       )
     );
 
-  public getRoutes = (
-    providedNames?: Array<string> | string
-  ): Array<Types.Route> => {
+  public getSourceFiles = () => {
+    const routes = this.getRoutes();
+    return uniq(routes.map((route) => route.files).flat());
+  };
+
+  public getRoutes = (providedNames?: Array<string> | string): Array<Route> => {
     return this.getRouteNames(providedNames).map((name) =>
-      this.store.reads.get<Types.Route>(this._pathRoute(name))
+      this.store.reads.get<Route>(this._pathRoute(name))
     );
+  };
+
+  public getServerComponents = (providedNames?: Array<string> | string) => {
+    const routes = this.getRoutes(providedNames);
+    return uniq(routes.map((route) => route.serverComponents).flat());
+  };
+
+  public getClientComponents = (providedNames?: Array<string> | string) => {
+    const routes = this.getRoutes(providedNames);
+    return uniq(routes.map((route) => route.clientComponents).flat());
   };
 
   public getRouteNames = (
@@ -148,8 +188,7 @@ class SApp {
     }
 
     const cachePath = this._pathAppCollection();
-    const collection =
-      this.store.reads.get<Array<Types.JSONValue>>(cachePath) || [];
+    const collection = this.store.reads.get<Array<JSONValue>>(cachePath) || [];
 
     this.overwriteProtection(dataDir);
     writeFileSync(
@@ -158,10 +197,7 @@ class SApp {
     );
   };
 
-  public stashReducedCollection = (
-    dataDir: string,
-    reduced: Types.JSONValue
-  ) => {
+  public stashReducedCollection = (dataDir: string, reduced: JSONValue) => {
     if (!existsSync(dataDir)) {
       throw new Error(
         `Cannot commit reduced collection because ${dataDir} does not exist.`
@@ -243,7 +279,7 @@ class SApp {
         } catch (err) {
           throw new Error(`Failed to parse ${fileName} in ${dataDir}.`);
         }
-      }, {} as Record<string, Types.JSONValue>);
+      }, {} as Record<string, JSONValue>);
   };
 
   public executeRewrites = (dataDir: string) => {
@@ -324,7 +360,8 @@ class SApp {
         []
       );
       this.store.registerAccessPath(this._pathRouteCollection(route.name), []);
-      this.store.registerAccessPath(routePath, {
+
+      const nextRoute = {
         ...route,
         files: route.entries
           .map((entry) => this.traversals.extractFilePaths(entry))
@@ -334,6 +371,16 @@ class SApp {
               unique.includes(filePath) ? unique : unique.concat([filePath]),
             [] as Array<string>
           ),
+      };
+
+      const { clientComponents, serverComponents } = this._mapToComponentTypes(
+        nextRoute.files
+      );
+
+      this.store.registerAccessPath(routePath, {
+        ...nextRoute,
+        clientComponents,
+        serverComponents,
       });
     });
   };

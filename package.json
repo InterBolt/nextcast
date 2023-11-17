@@ -1,6 +1,6 @@
 {
-  "name": "@interbolt/micropack",
-  "version": "1.0.0-alpha.16",
+  "name": "nextcast",
+  "version": "1.0.0-alpha.0",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "browser": "./dist/index.js",
@@ -22,13 +22,11 @@
     "@babel/traverse": "^7.23.3",
     "app-root-path": "^3.1.0",
     "colors": "^1.4.0",
-    "common-tags": "^1.8.2",
     "glob": "^10.3.10",
     "jscodeshift": "^0.15.1",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^25.0.7",
     "@types/babel__core": "^7.20.4",
     "@types/babel__traverse": "^7.20.4",
     "@types/common-tags": "^1.8.4",
@@ -36,14 +34,19 @@
     "@types/jscodeshift": "^0.11.9",
     "@types/lodash": "^4.14.200",
     "@types/node": "^20",
+    "eslint-plugin-nextcast": "file:./eslint-plugin-nextcast/",
     "rimraf": "^5.0.5",
     "rollup": "^4.4.1",
+    "semver": "^7.5.4",
     "type-fest": "^4.7.1",
     "typescript": "^5.2.2"
   },
-  "homepage": "https://github.com/InterBolt/micropack#readme",
+  "homepage": "https://github.com/InterBolt/nextcast#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/InterBolt/micropack.git"
+    "url": "https://github.com/InterBolt/nextcast.git"
+  },
+  "peerDependencies": {
+    "eslint-plugin-nextcast": "file:./eslint-plugin-nextcast/"
   }
 }
