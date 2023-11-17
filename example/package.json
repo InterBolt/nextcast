@@ -10,10 +10,10 @@
     "compile:nextcasts": "npx tsc -p ./nextcasts/tsconfig.json"
   },
   "dependencies": {
-    "@interbolt/nextcast": "file:..",
     "glob": "^10.3.10",
     "lodash": "^4.17.21",
     "next": "14.0.2",
+    "nextcast": "file:..",
     "react": "^18",
     "react-dom": "^18"
   },

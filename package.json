@@ -1,6 +1,6 @@
 {
   "name": "nextcast",
-  "version": "1.0.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "browser": "./dist/index.js",
@@ -12,10 +12,10 @@
     "dist"
   ],
   "scripts": {
-    "dev:build": "rimraf dist && npx tsc -w -d",
-    "ci:build": "rimraf dist && npx tsc && npx rollup -c",
+    "dev:build": "rimraf dist && npx rollup -w -c ./rollup/config.mjs",
+    "ci:build": "rimraf dist && npx rollup -c ./rollup/config.mjs",
     "ci:test": "echo \"No tests yet\"",
-    "prepublish": "node ./prepublish.mjs"
+    "prepublishOnly": "PUBLISH=true npm run ci:build"
   },
   "dependencies": {
     "@babel/parser": "^7.23.3",
@@ -27,6 +27,7 @@
     "lodash": "^4.17.21"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
     "@types/babel__core": "^7.20.4",
     "@types/babel__traverse": "^7.20.4",
     "@types/common-tags": "^1.8.4",
@@ -34,7 +35,7 @@
     "@types/jscodeshift": "^0.11.9",
     "@types/lodash": "^4.14.200",
     "@types/node": "^20",
-    "eslint-plugin-nextcast": "file:./eslint-plugin-nextcast/",
+    "eslint-plugin-nextcast": "file:./eslint-plugin",
     "rimraf": "^5.0.5",
     "rollup": "^4.4.1",
     "semver": "^7.5.4",
@@ -47,6 +48,6 @@
     "url": "https://github.com/InterBolt/nextcast.git"
   },
   "peerDependencies": {
-    "eslint-plugin-nextcast": "file:./eslint-plugin-nextcast/"
+    "eslint-plugin-nextcast": "file:./eslint-plugin"
   }
 }

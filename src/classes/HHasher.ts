@@ -14,6 +14,7 @@ import { createHash } from "crypto";
 import { glob } from "glob";
 
 class HHasher {
+  public initialized = false;
   public sourceCodeHash: string;
   public hashDir: string;
 

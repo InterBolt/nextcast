@@ -1,7 +1,8 @@
 const constants = {
+  compiledUserPluginsDir: ".nextcast.dist",
+  dataDirname: `.nextcast`,
   userDir: "nextcasts",
   name: "nextcast",
-  dataDirname: `.nextcast`,
   dataFileName: "data.json",
   rewritesFileName: "rewrites.json",
   errorsFileName: "errors.json",

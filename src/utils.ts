@@ -1,6 +1,5 @@
 import { basename, dirname, resolve } from "path";
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import appRootPath from "app-root-path";
 import constants from "./constants";
 
 export const stripIndent = (str: string) => {
@@ -8,9 +7,9 @@ export const stripIndent = (str: string) => {
   const indent = match && Math.min(...match.map((el) => el.length));
   if (indent) {
     const regexp = new RegExp(`^.{${indent}}`, "gm");
-    return str.replace(regexp, "");
+    str = str.replace(regexp, "");
   }
-  return str;
+  return str.trim();
 };
 
 const getNestedDepthRelativePath = (basePath: string, nestedPath: string) => {
@@ -127,19 +126,19 @@ export const withCorrectExt = (
 };
 
 export const getProjectRoot = (): string => {
-  const isCWDNextJSProject = existsSync(
-    resolve(process.cwd(), "next.config.js")
-  );
-  if (isCWDNextJSProject) {
+  const possibleExts = ["js", "mjs", "cjs", "mts", "cts", "ts"];
+  if (
+    possibleExts.find((ext) =>
+      existsSync(resolve(process.cwd(), `next.config.${ext}`))
+    )
+  ) {
     return process.cwd();
   }
-  const isRootNextJSProject = existsSync(
-    resolve(appRootPath.path, "next.config.js")
+  throw new Error(
+    `Must run from within a Next.js project. Couldn't find a next.config.{${possibleExts.join(
+      ", "
+    )}}`
   );
-  if (isRootNextJSProject) {
-    return appRootPath.path;
-  }
-  throw new Error("Can't locate a NextJS project.");
 };
 
 export const getDataDir = () => {

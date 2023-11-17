@@ -12,7 +12,7 @@ const val = "asfdf";
 
 
 const AboutPage = () => {
-  const props = useYetAnotherEndpoint('');
+  const props = useYetAnotherEndpoint(val);
 
   
   return (

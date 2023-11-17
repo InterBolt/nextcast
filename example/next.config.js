@@ -1,4 +1,4 @@
-const { withNextcast } = require("@interbolt/nextcast");
+const { withNextcast } = require("nextcast");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

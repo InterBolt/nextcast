@@ -1,4 +1,4 @@
-import { TNextcast } from "@interbolt/nextcast";
+import { TNextcast } from "nextcast";
 
 type Config = {
   path: string;
@@ -16,8 +16,13 @@ class HookCalls implements TNextcast.CustomPlugin {
   }
 
   public collector: TNextcast.Collector = async (ctx) => {
-    const { getRoutes, traverse, collect, reportError, getDetailedImports } =
-      ctx;
+    const {
+      getRoutes,
+      babelTraverse,
+      collect,
+      reportError,
+      getDetailedImports,
+    } = ctx;
     const { allowedArgTypes, exportIdentifier, path: fnPath } = this.config;
 
     const formattedAllowedArgTypes = (
@@ -41,7 +46,7 @@ class HookCalls implements TNextcast.CustomPlugin {
           return;
         }
 
-        traverse(filePath, {
+        babelTraverse(filePath, {
           CallExpression: (path) => {
             const isAssignee =
               path.node.callee.type === "Identifier" &&
