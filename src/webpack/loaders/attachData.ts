@@ -32,7 +32,7 @@ const addDataToHTMLTag = (
     });
 };
 
-export async function attachDataLoader(code: string) {
+async function attachDataLoader(code: string) {
   const callback = this.async();
   const dataDir = Utils.getDataDir();
   const names = getPluginDirs(dataDir);
@@ -54,3 +54,5 @@ export async function attachDataLoader(code: string) {
     callback(err, code);
   }
 }
+
+export default attachDataLoader;

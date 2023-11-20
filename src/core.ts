@@ -9,7 +9,7 @@ import {
   Plugin,
   PluginApi,
   ParsedBabel,
-  SharedCtx,
+  PluginCtx,
 } from "./types";
 import * as Utils from "./utils";
 import SCodemod from "./classes/SCodemod";
@@ -76,7 +76,7 @@ const core = async <PluginConfig extends any>(
       },
     };
 
-    const ContextShared: SharedCtx = {
+    const ContextShared: PluginCtx = {
       sourceFiles,
       routes,
       data: null,

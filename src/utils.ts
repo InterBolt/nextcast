@@ -203,8 +203,8 @@ export const getParentLayouts = (
     return layouts;
   }
 
-  const layoutPath = withCorrectExt(routeFile);
-  if (!existsSync(layoutPath)) {
+  const layoutPath = withCorrectExt(routeFile, null);
+  if (!layoutPath) {
     return getParentLayouts(parentDirPath, layouts);
   }
 
@@ -223,7 +223,7 @@ export const getParentLayouts = (
   }
 
   return getParentLayouts(
-    withCorrectExt(resolve(parentDirPath, routeFileName)),
+    withCorrectExt(resolve(parentDirPath, routeFileName), "layout.tsx"),
     layouts
   );
 };

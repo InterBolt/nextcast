@@ -48,7 +48,7 @@ export class Writes {
       );
     }
     set(this.store._unsafeStore, accessPath, {
-      mapObj,
+      ...mapObj,
       ...value,
     });
   };

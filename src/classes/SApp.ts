@@ -365,12 +365,12 @@ class SApp {
       }));
 
     this.store.registerAccessPath(this._pathDangerousRewritesToCommit, {});
+    this.store.registerAccessPath(this._pathDangerousRewriteHistory, []);
     this.store.registerAccessPath(this._pathRewritesToCommit, {});
+    this.store.registerAccessPath(this._pathRewriteHistory, []);
     this.store.registerAccessPath(this._pathAppCollection, []);
     [...pageRoutes, ...notFoundRoutes, ...errorRoutes].forEach((route) => {
       const routePath = this._path(route.name);
-      this.store.registerAccessPath(this._pathDangerousRewriteHistory, []);
-      this.store.registerAccessPath(this._pathRewriteHistory, []);
       this.store.registerAccessPath(this._pathCollection(route.name), []);
 
       const nextRoute = {

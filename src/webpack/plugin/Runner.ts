@@ -42,7 +42,7 @@ const createTsConfigIfNotExists = (inputDirPath: string) => {
   if (!existsSync(tsConfigPath)) {
     const tsConfig = {
       compilerOptions: {
-        outDir: `../${constants.compiledUserPluginsDir}}`,
+        outDir: `../${constants.compiledUserPluginsDir}`,
         target: "ESNext",
         module: "commonjs",
         moduleResolution: "node",

@@ -10,7 +10,7 @@ const getPluginDirs = (dataDir: string) =>
     .filter((name) => !name.startsWith("."))
     .filter((name) => statSync(resolve(dataDir, name)).isDirectory());
 
-export async function rewriteLoader(code: string) {
+async function rewriteLoader(code: string) {
   const callback = this.async();
   const dataDir = Utils.getDataDir();
   const names = getPluginDirs(dataDir);
@@ -38,3 +38,5 @@ export async function rewriteLoader(code: string) {
     callback(err, code);
   }
 }
+
+export default rewriteLoader;

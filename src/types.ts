@@ -37,18 +37,11 @@ export type PluginApi = {
   };
 };
 
-export type SharedCtx<Reduced extends JSONValue = JSONValue> = {
+export type PluginCtx = {
   sourceFiles: ReturnType<SApp["getSourceFiles"]>;
   routes: ReturnType<SApp["getRoutes"]>;
-  data: Reduced | null;
+  data?: JSONValue;
 };
-
-export type CollectorCtx = SharedCtx;
-
-export type ReducerCtx = SharedCtx;
-
-export type RewriterCtx<Reduced extends JSONValue = JSONValue> =
-  SharedCtx<Reduced>;
 
 export type Route = {
   name: string;
@@ -58,11 +51,11 @@ export type Route = {
   clientComponents: Array<string>;
 };
 
-export type Collector = (ctx: CollectorCtx, api: PluginApi) => Promise<void>;
+export type Collector = (ctx: PluginCtx, api: PluginApi) => Promise<void>;
 
-export type Rewriter = (ctx: RewriterCtx, api: PluginApi) => Promise<void>;
+export type Rewriter = (ctx: PluginCtx, api: PluginApi) => Promise<void>;
 
-export type Reducer = (ctx: ReducerCtx, api: PluginApi) => Promise<JSONValue>;
+export type Reducer = (ctx: PluginCtx, api: PluginApi) => Promise<JSONValue>;
 
 export class Plugin<Config extends Record<string, any>> {
   public name: string;

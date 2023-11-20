@@ -1,5 +1,5 @@
 const constants = {
-  compiledUserPluginsDir: ".nextcast.dist",
+  compiledUserPluginsDir: "dist/.nextcast",
   dataDirname: `.nextcast`,
   userDir: "nextcasts",
   name: "nextcast",
