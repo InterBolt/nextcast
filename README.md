@@ -1,5 +1,6 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 ![npm](https://img.shields.io/npm/v/nextcast)
+![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/interbolt_colin)
 
 # NextCast
 
