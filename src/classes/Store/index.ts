@@ -10,24 +10,24 @@ const prohibitAccessProxy = (errorMessage: string) => {
   return new Proxy({} as any, {
     get: () => {
       // throw before the invocation of the getter since the reference would be lost
-      // when we call _dangerouslyStartMicro().
+      // when we call _dangerouslyStartPlugin().
       throw new Error(errorMessage);
     },
   });
 };
 
-const uninitializedErrorMessage = `Store not initialized. Must call _dangerouslyStartMicro().`;
-const endedErrorMessage = `Store is closed. We already called _dangerouslyEndMicro().`;
+const uninitializedErrorMessage = `Store not initialized. Must call _dangerouslyStartPlugin().`;
+const endedErrorMessage = `Store is closed. We already called _dangerouslyEndPlugin().`;
 
 type THistory = Pick<
   Store,
-  "_unsafeAccessRegisters" | "_unsafeStore" | "_unsafeMicroName"
+  "_unsafeAccessRegisters" | "_unsafeStore" | "_unsafePluginName"
 >;
 
 class Store {
   public _unsafeAccessRegisters: Array<Array<string>> = [];
   public _unsafeStore: any = {};
-  public _unsafeMicroName: string;
+  public _unsafePluginName: string;
   public _unsafeHistory: Array<THistory> = [];
 
   // by default, these are set to throw errors any time they are accessed
@@ -48,7 +48,7 @@ class Store {
   }
 
   private _safePath = (path: Array<string>) => {
-    const cachePath = [this.accessMicroName(), ...path];
+    const cachePath = [this.accessPluginName(), ...path];
     this._validatePath(cachePath);
     return cachePath;
   };
@@ -56,11 +56,11 @@ class Store {
   public getParseCache = () =>
     this.reads.get<Record<string, ParsedBabel>>(this._safePath(["parsed"]));
 
-  public accessMicroName = () => {
-    if (typeof this._unsafeMicroName === "undefined") {
+  public accessPluginName = () => {
+    if (typeof this._unsafePluginName === "undefined") {
       throw new Error(`Cannot set cache without a plugin name.`);
     }
-    return this._unsafeMicroName;
+    return this._unsafePluginName;
   };
 
   private _validatePath = (path: any) => {
@@ -160,21 +160,21 @@ class Store {
     initialData: any = null
   ) => {
     this._validatePath(accessPathToRegister);
-    const accessPathToRegisterWithMicro = [
-      this.accessMicroName(),
+    const accessPathToRegisterWithPlugin = [
+      this.accessPluginName(),
       ...accessPathToRegister,
     ];
-    const containsDelimiter = accessPathToRegisterWithMicro.some((subpath) =>
+    const containsDelimiter = accessPathToRegisterWithPlugin.some((subpath) =>
       subpath.includes(STORE_PATH_DELIMITER)
     );
     if (containsDelimiter) {
       throw new Error(
-        `Cannot use delimiter "${STORE_PATH_DELIMITER}" in registered subpaths: ${accessPathToRegisterWithMicro}`
+        `Cannot use delimiter "${STORE_PATH_DELIMITER}" in registered subpaths: ${accessPathToRegisterWithPlugin}`
       );
     }
     const foundRegisteredPath = this._unsafeAccessRegisters.find(
       (registeredPath) =>
-        accessPathToRegisterWithMicro
+        accessPathToRegisterWithPlugin
           .join(STORE_PATH_DELIMITER)
           .startsWith(registeredPath.join(STORE_PATH_DELIMITER))
     );
@@ -183,15 +183,15 @@ class Store {
         `A cache register already exists at: ${foundRegisteredPath}`
       );
     }
-    this._unsafeAccessRegisters.push(accessPathToRegisterWithMicro);
-    set(this._unsafeStore, accessPathToRegisterWithMicro, initialData);
+    this._unsafeAccessRegisters.push(accessPathToRegisterWithPlugin);
+    set(this._unsafeStore, accessPathToRegisterWithPlugin, initialData);
   };
 
-  public _dangerouslyStartMicro = (
+  public _dangerouslyStartPlugin = (
     pluginName: string,
     preparsed: Record<string, ParsedBabel> = null
   ) => {
-    this._unsafeMicroName = pluginName;
+    this._unsafePluginName = pluginName;
     this._unsafeAccessRegisters = [];
     this._unsafeStore = {};
 
@@ -201,15 +201,15 @@ class Store {
     this.registerAccessPath(this._safePath(["parsed"]), preparsed || {});
   };
 
-  public _dangerouslyEndMicro = () => {
+  public _dangerouslyEndPlugin = () => {
     this._unsafeHistory.unshift({
       _unsafeStore: this._unsafeStore,
       _unsafeAccessRegisters: this._unsafeAccessRegisters,
-      _unsafeMicroName: this._unsafeMicroName,
+      _unsafePluginName: this._unsafePluginName,
     });
     this._unsafeStore = {};
     this._unsafeAccessRegisters = [];
-    this._unsafeMicroName = undefined;
+    this._unsafePluginName = undefined;
 
     // throw error on access after plugin is ended
     this.reads = prohibitAccessProxy(endedErrorMessage);

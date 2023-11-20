@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import OtherComponent from "./OtherComponent";
-import { default as useYetAnotherEndpoint } from "./useCloudflareData";
+import { default as usePreloadedData } from "./useCloudflareData";
 
 const DynamicComponent = dynamic(() => import("./DynamicComponent"), {
   ssr: false,
@@ -12,9 +12,9 @@ const val = "asfdf";
 
 
 const AboutPage = () => {
-  const props = useYetAnotherEndpoint(val);
+  const props = usePreloadedData(val);
 
-  
+
   return (
     <main className="flex flex-col items-center justify-between min-h-screen p-24">
       <OtherComponent />

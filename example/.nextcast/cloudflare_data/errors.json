@@ -17,6 +17,6 @@
       "column": "16",
       "source": "  const props = useYetAnotherEndpoint(val);"
     },
-    "message": "arg type \"Identifier\" is not allowed for uses of: /src/code/useCloudflareData.ts[default]"
+    "message": "arg type \"Identifier\" is not allowed for uses of: /src/usePreloadedData.ts[default]"
   }
 ]

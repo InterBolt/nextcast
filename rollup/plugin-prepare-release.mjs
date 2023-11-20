@@ -30,8 +30,6 @@ const pluginPrerelease = () => {
         }
       })();
 
-      console.log("pkgNextVersion", pkgNextVersion, currentPkg.version);
-
       if (semver.compare(pkgNextVersion, currentPkg.version) === -1) {
         const errorMessages = [
           `The current version of ${pkgName} is ${currentPkg.version}.`,

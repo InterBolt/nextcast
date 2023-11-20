@@ -1,12 +1,10 @@
 import traverse, { TraverseOptions } from "@babel/traverse";
-import jscodeshift from "jscodeshift";
-import { readFileSync, existsSync } from "fs";
 import Store from "./Store/index";
 import * as Utils from "../utils";
 
 type ResolvedImport = {
-  filePath: string;
-  exportName?: "unknown" | "default" | string;
+  file: string;
+  exportName?: "dynamic" | "default" | string;
   assignee?: string;
 };
 
@@ -19,30 +17,21 @@ class STraversals {
     this.store.registerAccessPath(["detailed_imports"], {});
   }
 
-  public jscodeshift = (filePath: string) => {
-    if (!existsSync(filePath)) {
-      throw new Error(`Cannot parse ${filePath} because it does not exist.`);
-    }
-
-    const sourceCode = readFileSync(filePath, "utf8");
-    return jscodeshift.withParser("tsx")(sourceCode);
+  public traverse = (file: string, options: TraverseOptions) => {
+    return traverse(this.store.parse(file), options);
   };
 
-  public babelTraverse = (filePath: string, options: TraverseOptions) => {
-    return traverse(this.store.parse(filePath), options);
-  };
-
-  public getDetailedImports = (filePath: string): Array<ResolvedImport> => {
+  public getImports = (file: string): Array<ResolvedImport> => {
     const extractedImports = this.store.reads.get<
       Record<string, Array<ResolvedImport>>
     >(["detailed_imports"]);
 
-    if (extractedImports[filePath]) {
-      return extractedImports[filePath];
+    if (extractedImports[file]) {
+      return extractedImports[file];
     }
 
     const detailedImports: Array<ResolvedImport> = [];
-    this.babelTraverse(filePath, {
+    this.traverse(file, {
       CallExpression: (path) => {
         if (path.node.callee.type !== "Import") {
           return;
@@ -62,9 +51,9 @@ class STraversals {
           return;
         }
         detailedImports.push({
-          filePath: Utils.resolveImport(filePath, importArgumentString.value),
+          file: Utils.resolveImport(file, importArgumentString.value),
           assignee: declarator.id.name,
-          exportName: "unknown",
+          exportName: "dynamic",
         });
       },
       ImportSpecifier: (path) => {
@@ -78,10 +67,7 @@ class STraversals {
           return;
         }
         detailedImports.push({
-          filePath: Utils.resolveImport(
-            filePath,
-            importDeclaration.node.source.value
-          ),
+          file: Utils.resolveImport(file, importDeclaration.node.source.value),
           assignee: path.node.local.name,
           exportName: path.node.imported.name,
         });
@@ -94,10 +80,7 @@ class STraversals {
           return;
         }
         detailedImports.push({
-          filePath: Utils.resolveImport(
-            filePath,
-            importDeclaration.node.source.value
-          ),
+          file: Utils.resolveImport(file, importDeclaration.node.source.value),
           assignee: path.node.local.name,
           exportName: "default",
         });
@@ -105,33 +88,32 @@ class STraversals {
     });
 
     this.store.writes.merge<Array<ResolvedImport>>(["detailed_imports"], {
-      [filePath]: detailedImports,
+      [file]: detailedImports,
     });
 
     return detailedImports;
   };
 
-  public extractFilePaths = (filePath: string): Array<string> => {
+  public extractFilePaths = (file: string): Array<string> => {
     const usedTree = this.store.reads.get<Record<string, Array<string>>>([
       "used_tree",
     ]);
 
-    if (usedTree[filePath]) {
-      return usedTree[filePath];
+    if (usedTree[file]) {
+      return usedTree[file];
     }
 
     const recursiveExtract = (
       entryPath: string,
       extractedImports: Array<string> = []
     ) => {
-      const resolvedImports = this.getDetailedImports(entryPath);
+      const resolvedImports = this.getImports(entryPath);
       extractedImports.push(entryPath);
       const unwalkedFilePaths = resolvedImports
         .filter(
-          (resolvedImport) =>
-            !extractedImports.includes(resolvedImport.filePath)
+          (resolvedImport) => !extractedImports.includes(resolvedImport.file)
         )
-        .map((resolvedImport) => resolvedImport.filePath)
+        .map((resolvedImport) => resolvedImport.file)
         .filter((unwalkedFilePath) =>
           Utils.validExts.some((validExt) =>
             unwalkedFilePath.endsWith(validExt)
@@ -146,10 +128,10 @@ class STraversals {
     };
 
     const extractedFilePaths: Array<string> = [];
-    recursiveExtract(filePath, extractedFilePaths);
+    recursiveExtract(file, extractedFilePaths);
 
     this.store.writes.merge<Array<string>>(["used_tree"], {
-      [filePath]: extractedFilePaths,
+      [file]: extractedFilePaths,
     });
 
     return extractedFilePaths;

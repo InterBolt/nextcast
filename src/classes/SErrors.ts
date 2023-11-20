@@ -125,7 +125,7 @@ class SErrors {
     const error = {
       info: {
         loc,
-        plugin: `${this.store.accessMicroName()}`,
+        plugin: `${this.store.accessPluginName()}`,
         file: filePath.replace(Utils.getProjectRoot(), ""),
         line: `${line}`,
         column: `${column}`,
@@ -169,7 +169,7 @@ class SErrors {
     const warning = {
       info: {
         loc,
-        plugin: `${this.store.accessMicroName()}`,
+        plugin: `${this.store.accessPluginName()}`,
         file: filePath.replace(Utils.getProjectRoot(), ""),
         line: `${line}`,
         column: `${column}`,

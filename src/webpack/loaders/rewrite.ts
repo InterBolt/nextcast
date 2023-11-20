@@ -2,6 +2,7 @@ import { resolve } from "path";
 import { readdirSync, statSync } from "fs";
 import constants from "../../constants";
 import * as Utils from "../../utils";
+import { get } from "lodash";
 
 const getPluginDirs = (dataDir: string) =>
   readdirSync(dataDir)
@@ -18,14 +19,17 @@ export async function rewriteLoader(code: string) {
 
   names.forEach((name) => {
     const pathToRewrites = resolve(dataDir, name, constants.rewritesFileName);
-    rewrite = (() => {
-      try {
-        return require(pathToRewrites);
-      } catch (err) {
-        console.log(err);
-        throw new Error(`Could not require ${pathToRewrites}`);
-      }
-    })()[resourcePath];
+    rewrite = get(
+      (() => {
+        try {
+          return require(pathToRewrites);
+        } catch (err) {
+          console.log(err);
+          throw new Error(`Could not require ${pathToRewrites}`);
+        }
+      })(),
+      ["loader", "toCommit", resourcePath]
+    );
   });
 
   try {

@@ -9,12 +9,12 @@ import type * as Types from "../../types";
 import log from "../../log";
 import HHasher from "../../classes/HHasher";
 
-const runNextcasts = async (packs: Array<Types.CustomPlugin<any>>) => {
+const runNextcasts = async (packs: Array<Types.Plugin<any>>) => {
   let previouslyParsed: Record<string, Types.ParsedBabel> = {};
   for (let i = 0; i < packs.length; i++) {
     const startTime = Date.now();
 
-    const { parsed, errors: errorLogs } = await core(
+    previouslyParsed = await core(
       packs[i],
       {
         rewrite: false,
@@ -22,16 +22,12 @@ const runNextcasts = async (packs: Array<Types.CustomPlugin<any>>) => {
       previouslyParsed
     );
 
-    errorLogs.map((args) => console.log(...args));
-
     log.success(
       `Ran nextcast: ${colors.blue(packs[i].name)} in ${(
         (Date.now() - startTime) /
         1000
       ).toFixed(2)}s`
     );
-
-    previouslyParsed = parsed;
   }
 };
 
@@ -87,7 +83,7 @@ const compileUserPlugins = (inputDirPath: string) => {
 class RunnerPlugin {
   public hasher: HHasher;
   public inputDir: string;
-  public packs: Array<Types.CustomPlugin<any>>;
+  public packs: Array<Types.Plugin<any>>;
 
   constructor(options: { inputDir: string }) {
     this.inputDir = options.inputDir;
@@ -125,7 +121,7 @@ class RunnerPlugin {
       );
     }
 
-    return packs as Array<Types.CustomPlugin<any>>;
+    return packs as Array<Types.Plugin<any>>;
   };
 
   apply(compiler: any) {

@@ -13,7 +13,7 @@
     "glob": "^10.3.10",
     "lodash": "^4.17.21",
     "next": "14.0.2",
-    "nextcast": "file:..",
+    "nextcast": "^0.1.0-alpha.2",
     "react": "^18",
     "react-dom": "^18"
   },

@@ -16,7 +16,7 @@ export const withNextcast = (nextConfig: any, opts?: { inputDir?: string }) => {
         test: new RegExp(`${Utils.getAppDir()}/layout.(js|ts|tsx|jsx)`),
         use: [
           {
-            loader: resolve(__dirname, "webpack/loaders/attachData.import.js"),
+            loader: resolve(__dirname, "webpack/loaders/attachData.js"),
           },
         ],
         enforce: "pre",
@@ -27,7 +27,7 @@ export const withNextcast = (nextConfig: any, opts?: { inputDir?: string }) => {
         test: /\.(js|jsx|ts|tsx)$/,
         use: [
           {
-            loader: resolve(__dirname, "webpack/loaders/rewrite.import.js"),
+            loader: resolve(__dirname, "webpack/loaders/rewrite.js"),
           },
         ],
         // we must run this before attaching data to the root layout

@@ -27,12 +27,17 @@ class SApp {
     }
   };
 
-  private _pathRouteRewriteHistory = (routeName: string) =>
-    ["rewrite_history", routeName] as const;
+  private _pathRewriteHistory = ["rewrite_history"] as const;
 
-  private _pathRewritesToCommit = () => ["rewrites_to_commit"] as const;
+  private _pathDangerousRewriteHistory = ["dangerous_rewrite_history"] as const;
 
-  private _pathRouteCollection = (routeName: string) =>
+  private _pathRewritesToCommit = ["rewrites_to_commit"] as const;
+
+  private _pathDangerousRewritesToCommit = [
+    "dangerous_rewrites_to_commit",
+  ] as const;
+
+  private _pathCollection = (routeName: string) =>
     ["route_collections", routeName] as const;
 
   private _pathAllRoutes = (routeName?: string) => {
@@ -42,11 +47,9 @@ class SApp {
     return ["routes"] as const;
   };
 
-  private _pathRoute = (routeName: string) => ["routes", routeName] as const;
+  private _path = (routeName: string) => ["routes", routeName] as const;
 
-  private _pathAppCollection = () => {
-    return ["route_type_collection"] as const;
-  };
+  private _pathAppCollection = ["route_type_collection"] as const;
 
   private _mapToComponentTypes = (
     files: Array<string>
@@ -76,31 +79,26 @@ class SApp {
       );
   };
 
-  public createRewriter = (routeName: string, fallbackFilePath: string) => {
-    if (!existsSync(fallbackFilePath)) {
-      throw new Error(
-        `Cannot rewrite ${fallbackFilePath} because it does not exist.`
-      );
-    }
+  public queueRewrite = (code: string, filePath: string) => {
+    this.store.writes.merge<string>(this._pathRewritesToCommit, {
+      [filePath]: code,
+    });
 
-    return async (
-      codeOrCollection: string | Collection<any>,
-      filePath: string = fallbackFilePath
-    ) => {
-      const code =
-        typeof codeOrCollection === "string"
-          ? codeOrCollection
-          : codeOrCollection.toSource();
+    this.store.writes.push(this._pathRewriteHistory, {
+      filePath,
+      code,
+    });
+  };
 
-      this.store.writes.merge<string>(this._pathRewritesToCommit(), {
-        [filePath]: code,
-      });
+  public dangerouslyQueueRewrite = (newCode: string, filePath: string) => {
+    this.store.writes.merge<string>(this._pathDangerousRewritesToCommit, {
+      [filePath]: newCode,
+    });
 
-      this.store.writes.push(this._pathRouteRewriteHistory(routeName), {
-        filePath,
-        code,
-      });
-    };
+    this.store.writes.push(this._pathDangerousRewriteHistory, {
+      filePath,
+      code: newCode,
+    });
   };
 
   public collect = (data: JSONValue) => {
@@ -112,7 +110,7 @@ class SApp {
       );
     }
 
-    const cachePath = this._pathAppCollection();
+    const cachePath = this._pathAppCollection;
     const dataset = this.store.reads.get<Array<JSONValue>>(cachePath);
 
     if (!Array.isArray(dataset)) {
@@ -122,10 +120,10 @@ class SApp {
     dataset.push(data);
   };
 
-  public getCollection = () =>
+  public getCollected = () =>
     JSON.parse(
       JSON.stringify(
-        this.store.reads.get<Array<JSONValue>>(this._pathAppCollection()) || []
+        this.store.reads.get<Array<JSONValue>>(this._pathAppCollection) || []
       )
     );
 
@@ -136,7 +134,7 @@ class SApp {
 
   public getRoutes = (providedNames?: Array<string> | string): Array<Route> => {
     return this.getRouteNames(providedNames).map((name) =>
-      this.store.reads.get<Route>(this._pathRoute(name))
+      this.store.reads.get<Route>(this._path(name))
     );
   };
 
@@ -187,7 +185,7 @@ class SApp {
       );
     }
 
-    const cachePath = this._pathAppCollection();
+    const cachePath = this._pathAppCollection;
     const collection = this.store.reads.get<Array<JSONValue>>(cachePath) || [];
 
     this.overwriteProtection(dataDir);
@@ -240,8 +238,30 @@ class SApp {
     this.stashErrorsOrWarnings(dataDir, warnings, "warning");
 
   public getRewrites = () => {
-    const cachePath = this._pathRewritesToCommit();
-    return this.store.reads.get<Record<string, string>>(cachePath);
+    return {
+      dangerous: {
+        history: this.store.reads.get<
+          Array<{ filePath: string; code: string }>
+        >(this._pathDangerousRewriteHistory),
+        toCommit: this.store.reads.get<Record<string, string>>(
+          this._pathDangerousRewritesToCommit
+        ),
+      },
+      loader: {
+        history: this.store.reads.get<
+          Array<{ filePath: string; code: string }>
+        >(this._pathRewriteHistory),
+        toCommit: this.store.reads.get<Record<string, string>>(
+          this._pathRewritesToCommit
+        ),
+      },
+    };
+  };
+
+  public getDangerousRewrites = () => {
+    return this.store.reads.get<Record<string, string>>(
+      this._pathDangerousRewritesToCommit
+    );
   };
 
   public stashRewrites = (dataDir: string) => {
@@ -251,13 +271,10 @@ class SApp {
       );
     }
 
-    const cachePath = this._pathRewritesToCommit();
-    const rewriteMap = this.store.reads.get<Record<string, string>>(cachePath);
-
     this.overwriteProtection(dataDir);
     writeFileSync(
       resolve(dataDir, constants.rewritesFileName),
-      JSON.stringify(rewriteMap, null, 2)
+      JSON.stringify(this.getRewrites(), null, 2)
     );
   };
 
@@ -282,14 +299,10 @@ class SApp {
       }, {} as Record<string, JSONValue>);
   };
 
-  public executeRewrites = (dataDir: string) => {
-    if (!existsSync(dataDir)) {
-      throw new Error(
-        `Cannot commit rewrites because ${dataDir} does not exist.`
-      );
-    }
-    const cachePath = this._pathRewritesToCommit();
-    const rewriteMap = this.store.reads.get<Record<string, string>>(cachePath);
+  public executeDangerousRewrites = () => {
+    const rewriteMap = this.store.reads.get<Record<string, string>>(
+      this._pathDangerousRewritesToCommit
+    );
 
     Object.entries(rewriteMap).forEach(([filePath, code]) => {
       this.overwriteProtection(filePath);
@@ -351,15 +364,14 @@ class SApp {
         files: [],
       }));
 
-    this.store.registerAccessPath(this._pathRewritesToCommit(), {});
-    this.store.registerAccessPath(this._pathAppCollection(), []);
+    this.store.registerAccessPath(this._pathDangerousRewritesToCommit, {});
+    this.store.registerAccessPath(this._pathRewritesToCommit, {});
+    this.store.registerAccessPath(this._pathAppCollection, []);
     [...pageRoutes, ...notFoundRoutes, ...errorRoutes].forEach((route) => {
-      const routePath = this._pathRoute(route.name);
-      this.store.registerAccessPath(
-        this._pathRouteRewriteHistory(route.name),
-        []
-      );
-      this.store.registerAccessPath(this._pathRouteCollection(route.name), []);
+      const routePath = this._path(route.name);
+      this.store.registerAccessPath(this._pathDangerousRewriteHistory, []);
+      this.store.registerAccessPath(this._pathRewriteHistory, []);
+      this.store.registerAccessPath(this._pathCollection(route.name), []);
 
       const nextRoute = {
         ...route,

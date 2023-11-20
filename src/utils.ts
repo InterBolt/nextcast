@@ -118,7 +118,11 @@ export const withCorrectExt = (
   );
   if (!correctExt) {
     if (typeof fallbackValue === "undefined") {
-      throw new Error(`No valid extension found for ${filePath}`);
+      throw new Error(
+        `We expected ${filePath} to have a valid extension: ${validExts.join(
+          ", "
+        )}`
+      );
     }
     return fallbackValue;
   }

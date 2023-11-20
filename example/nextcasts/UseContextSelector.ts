@@ -13,10 +13,10 @@ class UseContextSelectorLibraryInstead implements TNextcast.CustomPlugin {
     const {
       getSourceFiles,
       getRoutes,
-      babelTraverse,
+      babelTraversal,
       collect,
       reportError,
-      getDetailedImports,
+      getImports,
     } = ctx;
   };
 
@@ -33,7 +33,7 @@ class UseContextSelectorLibraryInstead implements TNextcast.CustomPlugin {
       jscodeshift,
       collect,
       reportError,
-      getDetailedImports,
+      getImports,
     } = ctx;
 
     // Remove all uses of React.useContext

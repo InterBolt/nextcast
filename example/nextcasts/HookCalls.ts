@@ -16,13 +16,7 @@ class HookCalls implements TNextcast.CustomPlugin {
   }
 
   public collector: TNextcast.Collector = async (ctx) => {
-    const {
-      getRoutes,
-      babelTraverse,
-      collect,
-      reportError,
-      getDetailedImports,
-    } = ctx;
+    const { getRoutes, babelTraversal, collect, reportError, getImports } = ctx;
     const { allowedArgTypes, exportIdentifier, path: fnPath } = this.config;
 
     const formattedAllowedArgTypes = (
@@ -31,7 +25,7 @@ class HookCalls implements TNextcast.CustomPlugin {
 
     getRoutes().forEach(({ files, name: routeName }) => {
       files.forEach((filePath) => {
-        const foundHookImport = getDetailedImports(filePath).find(
+        const foundHookImport = getImports(filePath).find(
           (resolvedImport) =>
             resolvedImport.filePath === fnPath &&
             resolvedImport.exportName === exportIdentifier
@@ -46,7 +40,7 @@ class HookCalls implements TNextcast.CustomPlugin {
           return;
         }
 
-        babelTraverse(filePath, {
+        babelTraversal(filePath, {
           CallExpression: (path) => {
             const isAssignee =
               path.node.callee.type === "Identifier" &&
