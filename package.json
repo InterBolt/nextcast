@@ -8,6 +8,7 @@
   "engines": {
     "yarn": "use npm!"
   },
+  "keywords": ["nextjs", "react", "typescript", "eslint", "codemoe", "abstract syntax tree", "AST", "jscodeshift", "babel"],
   "files": [
     "dist"
   ],

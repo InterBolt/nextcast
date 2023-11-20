@@ -4,7 +4,7 @@
 
 # NextCast
 
-**This is an alpha version and the plugin API is subject to change.**
+**This is an alpha version. The plugin API is subject to change.**
 
 _Read the blog post here for a high level description and backstory: https://interbolt.org/blog/nextcast/_
 
@@ -24,7 +24,7 @@ Install NextCast and its ESLint plugin with npm
 npm install nextcast eslint-plugin-nextcast
 ```
 
-Add the nextcast eslint plugin to your eslint config file. Here's an example `.eslintrc.json` file:
+Configure the eslint plugin. Here's an example `.eslintrc.json` file:
 
 ```json
 {
