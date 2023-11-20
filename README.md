@@ -59,16 +59,16 @@ And finally, within `nextcasts/index.ts` you can define your plugins likeso:
 _NextCast will automatically generate a `nextcasts/tsconfig.json` file when you run `next build/dev`._
 
 ```typescript
-const YourCustomPlugins = Array<NextCastPlugin>;
+const CustomPlugins = [...]
 
-export default YourCustomPlugins;
+export default CustomPlugins;
 ```
 
 Once all of that is in place, you can head down to the API reference below to learn how to create a new NextCast plugin.
 
 ## API reference for user defined plugins
 
-**\*Disclaimer**: I'll be adding more helper methods for traversing NextJS source files in the future. In the meantime, I expect most useful plugins will need to write lots of their own AST traversals.\*
+_**Disclaimer**: I'll be adding more helper methods for traversing NextJS source files in the future. In the meantime, I expect most useful plugins will need to write lots of their own AST traversals._
 
 A user plugin must implement the following interface:
 
@@ -239,18 +239,19 @@ Wraps `babel/parser` and returns a cached version of the AST if the `filePath` w
 #### PluginApi.getRewrites
 
 ```typescript
-type RewriteInfo = {
-    history: Array<{ filePath: string; code: string }>,
-    toCommit: Record<string, string>
-}
-
 () => {
-    dangerous: RewriteInfo,
-    loader: RewriteInfo
+    dangerous: {
+        history: Array<{ filePath: string; code: string }>,
+        toCommit: Record<string, string>
+    },
+    loader: {
+        history: Array<{ filePath: string; code: string }>,
+        toCommit: Record<string, string>
+    }
 }
 ```
 
-Get all queued rewrites that will occur to either the source code (`dangerous`), or within a webpack loader `loader`. If a file was rewritten multiple times, you'll only see the latest rewrite in the `.toCommit` field.
+Get all queued rewrites that will occur to either the source code (`dangerous`), or within a webpack build (`loader`). If a file was rewritten multiple times, you'll only see the latest rewrite at `[dangerous|loader].toCommit[filePath]` slot.
 
 #### PluginApi.getCollected
 
