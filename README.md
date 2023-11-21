@@ -182,7 +182,7 @@ Supply a `transform` param to modify a file's AST and refer to https://github.co
 #### PluginApi.queueRewrite
 
 ```typescript
-(code: string, filePath: string) => void
+(filePath: string, code: string) => void
 ```
 
 Tells NextCast to rewrite this file before running NextJS loaders. Note: **This does not rewrite actual source code.**
@@ -190,7 +190,7 @@ Tells NextCast to rewrite this file before running NextJS loaders. Note: **This 
 #### PluginApi.dangerouslyQueueRewrite
 
 ```typescript
-(code: string, filePath: string) => void
+(filePath: string, code: string) => void
 ```
 
 Tells NextCast to rewrite the actual, version-controlled source code. Important: **This will modify your project's source code. Use carefully.**

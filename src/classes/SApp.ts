@@ -1,14 +1,12 @@
-import { basename, resolve, dirname } from "path";
+import { resolve } from "path";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "fs";
-import { glob } from "glob";
-import type { Collection } from "jscodeshift";
 import type STraversals from "./STraversals";
 import type { IErrorOrWarning } from "./SErrors";
 import Store from "./Store/index";
-import * as Utils from "../utils";
 import constants from "../constants";
 import { JSONValue, Route } from "../types";
 import { uniq } from "lodash";
+import nextSpec from "../next/nextSpec";
 
 class SApp {
   private store: Store;
@@ -20,7 +18,7 @@ class SApp {
   }
 
   private overwriteProtection = (path: string) => {
-    if (!path.startsWith(Utils.getProjectRoot())) {
+    if (!path.startsWith(nextSpec.getProjectRoot())) {
       throw new Error(
         `Cannot overwrite ${path} because it is not in the project root.`
       );
@@ -79,7 +77,7 @@ class SApp {
       );
   };
 
-  public queueRewrite = (code: string, filePath: string) => {
+  public queueRewrite = (filePath: string, code: string) => {
     this.store.writes.merge<string>(this._pathRewritesToCommit, {
       [filePath]: code,
     });
@@ -90,7 +88,7 @@ class SApp {
     });
   };
 
-  public dangerouslyQueueRewrite = (newCode: string, filePath: string) => {
+  public dangerouslyQueueRewrite = (filePath: string, newCode: string) => {
     this.store.writes.merge<string>(this._pathDangerousRewritesToCommit, {
       [filePath]: newCode,
     });
@@ -311,71 +309,21 @@ class SApp {
   };
 
   public loadRoutes = async () => {
-    const appDir = Utils.getAppDir();
-
-    const pageRoutes = (await glob(`${appDir}/**/page.{js,ts,jsx,tsx}`)).map(
-      (pageFile) => ({
-        name: Utils.removeExt(pageFile).replace(appDir, "") || "/page",
-        entries: [
-          "page",
-          "template",
-          "loading",
-          ...Utils.getParentLayouts(pageFile),
-        ]
-          .map((entryFile) =>
-            Utils.withCorrectExt(
-              resolve(dirname(pageFile), `${entryFile}.js`),
-              null
-            )
-          )
-          .filter((e) => e),
-        files: [],
-      })
-    );
-
-    const notFoundRoutes = (
-      await glob(`${appDir}/**/not-found.{js,ts,jsx,tsx}`)
-    ).map((notFoundFile) => ({
-      name: Utils.removeExt(notFoundFile).replace(appDir, "") || "/not-found",
-      entries: [notFoundFile],
-      files: [],
-    }));
-
-    const errorRoutes = (
-      await glob(`${appDir}/**/{error,global-error}.{js,ts,jsx,tsx}`)
-    )
-      .map(Utils.removeExt)
-      .filter((errorFileWithoutExt, _i, filesWithoutExt) => {
-        const hasGlobalError =
-          filesWithoutExt.indexOf(resolve(appDir, "global-error")) !== -1;
-        const isRootErrorFile =
-          errorFileWithoutExt === resolve(appDir, "error");
-        const shouldRemove = hasGlobalError && isRootErrorFile;
-
-        return !shouldRemove;
-      })
-      .map(Utils.withCorrectExt)
-      .map((errorFile) => ({
-        name: Utils.removeExt(errorFile).replace(appDir, "") || "/error",
-        entries:
-          Utils.removeExt(basename(errorFile)) === "global-error"
-            ? [errorFile]
-            : [errorFile, ...Utils.getParentLayouts(errorFile)],
-        files: [],
-      }));
+    const routes = await nextSpec.getRouteEntries();
 
     this.store.registerAccessPath(this._pathDangerousRewritesToCommit, {});
     this.store.registerAccessPath(this._pathDangerousRewriteHistory, []);
     this.store.registerAccessPath(this._pathRewritesToCommit, {});
     this.store.registerAccessPath(this._pathRewriteHistory, []);
     this.store.registerAccessPath(this._pathAppCollection, []);
-    [...pageRoutes, ...notFoundRoutes, ...errorRoutes].forEach((route) => {
-      const routePath = this._path(route.name);
-      this.store.registerAccessPath(this._pathCollection(route.name), []);
+    routes.forEach(({ routePath, entries }) => {
+      const routeCachePath = this._path(routePath);
+      this.store.registerAccessPath(this._pathCollection(routePath), []);
 
       const nextRoute = {
-        ...route,
-        files: route.entries
+        name: routePath,
+        entries,
+        files: entries
           .map((entry) => this.traversals.extractFilePaths(entry))
           .flat()
           .reduce(
@@ -389,7 +337,7 @@ class SApp {
         nextRoute.files
       );
 
-      this.store.registerAccessPath(routePath, {
+      this.store.registerAccessPath(routeCachePath, {
         ...nextRoute,
         clientComponents,
         serverComponents,

@@ -12,6 +12,7 @@ import {
 } from "fs";
 import { createHash } from "crypto";
 import { glob } from "glob";
+import nextSpec from "../next/nextSpec";
 
 class HHasher {
   public initialized = false;
@@ -41,17 +42,18 @@ class HHasher {
   };
 
   private _safeDir = (dirOrPath: string) => {
-    let path = (dirOrPath = isAbsolute(dirOrPath)
+    const projectRoot = nextSpec.getProjectRoot();
+    let path = isAbsolute(dirOrPath)
       ? dirOrPath
-      : resolve(Utils.getProjectRoot(), dirOrPath));
-    if (!path.startsWith(Utils.getProjectRoot())) {
-      throw new Error(`${path} is not within ${Utils.getProjectRoot()}`);
+      : resolve(projectRoot, dirOrPath);
+    if (!path.startsWith(projectRoot)) {
+      throw new Error(`${path} is not within ${projectRoot}`);
     }
 
     return path;
   };
 
-  private _getDirectoryHash = (dir: string, excludeFiles?: Array<string>) => {
+  private _getDirectoryHash = (dir: string) => {
     const dirPath = this._safeDir(dir);
     const allFiles = [];
 
@@ -68,19 +70,12 @@ class HHasher {
 
     grabAllFiles(dirPath);
 
-    const finalFiles = allFiles
-      .filter(
-        (file) =>
-          !(excludeFiles || []).some((excludedFilename) =>
-            file.endsWith(excludedFilename)
-          )
-      )
-      .filter(
-        (file) =>
-          !file.includes(".next/") &&
-          !file.includes(".git/") &&
-          !file.includes("dist/")
-      );
+    const finalFiles = allFiles.filter(
+      (file) =>
+        !file.includes(".next/") &&
+        !file.includes(".git/") &&
+        !file.includes("dist/")
+    );
 
     if (finalFiles.length === 0) {
       return "";
@@ -150,13 +145,15 @@ class HHasher {
         }
       });
 
-    return {
+    const returnData = {
       dirs: includedDirectories
         .filter((d) => d !== ".")
         .sort()
         .map((dir) => resolve(safeDir, dir)),
       files: includedFiles.sort().map((file) => resolve(safeDir, file)),
     };
+
+    return returnData;
   };
 
   private _getSourceCodeHash = async (dir: string) => {
@@ -179,7 +176,7 @@ class HHasher {
   };
 
   public init = () => {
-    const dataDir = Utils.getDataDir();
+    const dataDir = nextSpec.getDataDir();
     if (!existsSync(dataDir)) {
       mkdirSync(dataDir);
     }
@@ -189,7 +186,9 @@ class HHasher {
       mkdirSync(this.hashDir);
     }
 
-    Utils.addToGitignore(dataDir, [`/${constants.hashDir}`]);
+    Utils.addToDatadirGitignore(nextSpec.getProjectRoot(), dataDir, [
+      `/${constants.hashDir}`,
+    ]);
 
     const filesInHashDir = readdirSync(this.hashDir)
       .map((name) => resolve(this.hashDir, name))

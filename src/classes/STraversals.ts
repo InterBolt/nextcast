@@ -1,6 +1,8 @@
 import traverse, { TraverseOptions } from "@babel/traverse";
 import Store from "./Store/index";
 import * as Utils from "../utils";
+import nextSpec from "../next/nextSpec";
+import nextConstants from "../next/nextConstants";
 
 type ResolvedImport = {
   file: string;
@@ -31,6 +33,8 @@ class STraversals {
     }
 
     const detailedImports: Array<ResolvedImport> = [];
+    const projectDir = nextSpec.getProjectRoot();
+
     this.traverse(file, {
       CallExpression: (path) => {
         if (path.node.callee.type !== "Import") {
@@ -51,7 +55,11 @@ class STraversals {
           return;
         }
         detailedImports.push({
-          file: Utils.resolveImport(file, importArgumentString.value),
+          file: Utils.resolveImport(
+            projectDir,
+            file,
+            importArgumentString.value
+          ),
           assignee: declarator.id.name,
           exportName: "dynamic",
         });
@@ -67,7 +75,11 @@ class STraversals {
           return;
         }
         detailedImports.push({
-          file: Utils.resolveImport(file, importDeclaration.node.source.value),
+          file: Utils.resolveImport(
+            projectDir,
+            file,
+            importDeclaration.node.source.value
+          ),
           assignee: path.node.local.name,
           exportName: path.node.imported.name,
         });
@@ -80,7 +92,11 @@ class STraversals {
           return;
         }
         detailedImports.push({
-          file: Utils.resolveImport(file, importDeclaration.node.source.value),
+          file: Utils.resolveImport(
+            projectDir,
+            file,
+            importDeclaration.node.source.value
+          ),
           assignee: path.node.local.name,
           exportName: "default",
         });
@@ -115,7 +131,7 @@ class STraversals {
         )
         .map((resolvedImport) => resolvedImport.file)
         .filter((unwalkedFilePath) =>
-          Utils.validExts.some((validExt) =>
+          nextConstants.SOURCE_EXTS.some((validExt) =>
             unwalkedFilePath.endsWith(validExt)
           )
         );

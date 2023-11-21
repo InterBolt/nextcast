@@ -2,6 +2,7 @@ import jscodeshift, { Collection } from "jscodeshift";
 import { existsSync, readFileSync } from "fs";
 import * as Utils from "../utils";
 import type Store from "./Store";
+import nextSpec from "../next/nextSpec";
 
 const getCollectionProxy: (collection: Collection) => Collection = (
   collection: Collection
@@ -37,7 +38,7 @@ class SCodemod {
 
   private _parse = (filePath: string) =>
     jscodeshift.withParser("tsx")(
-      readFileSync(Utils.withCorrectExt(filePath), "utf8")
+      readFileSync(nextSpec.withCorrectExt(filePath), "utf8")
     );
 
   public modify = (

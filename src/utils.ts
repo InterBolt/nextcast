@@ -1,6 +1,5 @@
-import { basename, dirname, resolve } from "path";
+import { resolve } from "path";
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import constants from "./constants";
 
 export const stripIndent = (str: string) => {
   const match = str.match(/^[^\S\n]*(?=\S)/gm);
@@ -97,155 +96,30 @@ const resolveAliasedImport = (
   return correctPath;
 };
 
-export const validExts = ["js", "ts", "tsx", "jsx"];
-
-export const routeGroupRegex = /^.*\(.*\)$/;
-
-export const removeExt = (filePath: string): string => {
-  if (validExts.find((ext) => filePath.endsWith(`.${ext}`))) {
-    return filePath.slice(0, filePath.lastIndexOf("."));
-  }
-  return filePath;
-};
-
-export const withCorrectExt = (
+export const resolveImport = (
+  rootDir: string,
   filePath: string,
-  fallbackValue?: any
-): string => {
-  const withoutExt = removeExt(filePath);
-  const correctExt = validExts.find((ext) =>
-    existsSync(`${withoutExt}.${ext}`)
-  );
-  if (!correctExt) {
-    if (typeof fallbackValue === "undefined") {
-      throw new Error(
-        `We expected ${filePath} to have a valid extension: ${validExts.join(
-          ", "
-        )}`
-      );
-    }
-    return fallbackValue;
-  }
-  return `${withoutExt}.${correctExt}`;
-};
-
-export const getProjectRoot = (): string => {
-  const possibleExts = ["js", "mjs", "cjs", "mts", "cts", "ts"];
-  if (
-    possibleExts.find((ext) =>
-      existsSync(resolve(process.cwd(), `next.config.${ext}`))
-    )
-  ) {
-    return process.cwd();
-  }
-  throw new Error(
-    `Must run from within a Next.js project. Couldn't find a next.config.{${possibleExts.join(
-      ", "
-    )}}`
-  );
-};
-
-export const getDataDir = () => {
-  return resolve(getProjectRoot(), constants.dataDirname);
-};
-
-export const getAppDir = (rootPath?: string): string => {
-  if (!rootPath) {
-    rootPath = getProjectRoot();
-  }
-  const isNextJSProject = existsSync(resolve(rootPath, "next.config.js"));
-  if (!isNextJSProject) {
-    throw new Error(
-      "Not a Next.js project. Can't locate a NextJS app router directory."
-    );
-  }
-  const topLevelAppDir = resolve(rootPath, "app");
-  if (existsSync(topLevelAppDir)) {
-    return topLevelAppDir;
-  }
-  const srcLevelAppDir = resolve(rootPath, "src", "app");
-  if (existsSync(srcLevelAppDir)) {
-    return srcLevelAppDir;
-  }
-  let foundPagesDir: string;
-  const topLevelPagesDir = resolve(rootPath, "app");
-  if (existsSync(topLevelPagesDir)) {
-    foundPagesDir = topLevelPagesDir;
-  }
-  const srcLevelPagesDir = resolve(rootPath, "src", "app");
-  if (existsSync(srcLevelPagesDir)) {
-    foundPagesDir = srcLevelPagesDir;
-  }
-  if (foundPagesDir) {
-    throw new Error(
-      "You must use the new NextJS app router directory structure. See https://nextjs.org/docs"
-    );
-  }
-  throw new Error(
-    "Can't locate a NextJS app or pages directory. Are you sure this is a valid NextJS project?"
-  );
-};
-
-export const getParentLayouts = (
-  routeFile: string,
-  layouts = []
-): Array<string> => {
-  const appDir = getAppDir();
-  const routeFileName = removeExt(basename(routeFile));
-  const rootLayouDirPath = withCorrectExt(resolve(appDir, "layout"));
-  const pageDirPath = dirname(routeFile);
-  const pageDirName = basename(dirname(routeFile));
-  const parentDirPath = resolve(pageDirPath, "..");
-  const grandparentDirPath = resolve(pageDirPath, "..", "..");
-
-  if (appDir === pageDirPath) {
-    layouts.push(rootLayouDirPath);
-    return layouts;
-  }
-
-  const layoutPath = withCorrectExt(routeFile, null);
-  if (!layoutPath) {
-    return getParentLayouts(parentDirPath, layouts);
-  }
-
-  layouts.push(layoutPath);
-
-  const isInRouteGroup = routeGroupRegex.test(pageDirName);
-  if (isInRouteGroup) {
-    if (grandparentDirPath === appDir) {
-      layouts.push(rootLayouDirPath);
-      return layouts;
-    }
-    return getParentLayouts(
-      withCorrectExt(resolve(grandparentDirPath, "layout")),
-      layouts
-    );
-  }
-
-  return getParentLayouts(
-    withCorrectExt(resolve(parentDirPath, routeFileName), "layout.tsx"),
-    layouts
-  );
-};
-
-export const resolveImport = (filePath: string, importPath: string) => {
-  const projectRoot = getProjectRoot();
+  importPath: string
+) => {
   const tsconfig = (() => {
     try {
-      return require(resolve(projectRoot, "tsconfig.json"));
+      return require(resolve(rootDir, "tsconfig.json"));
     } catch (err) {
       return undefined;
     }
   })();
-  return resolveAliasedImport(getProjectRoot(), filePath, importPath, {
+  return resolveAliasedImport(rootDir, filePath, importPath, {
     ...(tsconfig?.compilerOptions?.paths || {}),
     ["*"]: ["node_modules/*"],
   });
 };
 
-export const addToGitignore = (dataDir: string, gitignored: Array<string>) => {
-  const projectRoot = getProjectRoot();
-  const dataDirPath = resolve(projectRoot, dataDir);
+export const addToDatadirGitignore = (
+  dir: string,
+  dataDir: string,
+  gitignored: Array<string>
+) => {
+  const dataDirPath = resolve(dir, dataDir);
   if (!existsSync(dataDirPath)) {
     throw new Error(`Data directory ${dataDirPath} does not exist.`);
   }
@@ -271,4 +145,24 @@ export const addToGitignore = (dataDir: string, gitignored: Array<string>) => {
   }
   currentGitignoreLines.push(...nextGitignoreLines);
   writeFileSync(gitignorePath, currentGitignoreLines.join("\n").trim());
+};
+
+export const getPackageDeps = (dir?: string) => {
+  dir = dir || process.cwd();
+  const pathToPkg = resolve(dir, "package.json");
+  if (!existsSync(pathToPkg)) {
+    throw new Error(`No package.json found at ${pathToPkg}`);
+  }
+  const packageJsonFile = readFileSync(resolve(dir, "package.json"), "utf8");
+  const parsedPackageJson = JSON.parse(packageJsonFile);
+  const devDependencies = parsedPackageJson.devDependencies || {};
+  const dependencies = parsedPackageJson.dependencies || {};
+  return {
+    dependencies,
+    devDependencies,
+    all: {
+      ...devDependencies,
+      ...dependencies,
+    },
+  };
 };

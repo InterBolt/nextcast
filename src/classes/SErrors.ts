@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "fs";
 import { isEqual } from "lodash";
 import Store from "./Store/index";
 import * as Utils from "../utils";
+import nextSpec from "../next/nextSpec";
 
 type LocPosition = {
   start: {
@@ -126,7 +127,7 @@ class SErrors {
       info: {
         loc,
         plugin: `${this.store.accessPluginName()}`,
-        file: filePath.replace(Utils.getProjectRoot(), ""),
+        file: filePath.replace(nextSpec.getProjectRoot(), ""),
         line: `${line}`,
         column: `${column}`,
         source: `${source}`,
@@ -170,7 +171,7 @@ class SErrors {
       info: {
         loc,
         plugin: `${this.store.accessPluginName()}`,
-        file: filePath.replace(Utils.getProjectRoot(), ""),
+        file: filePath.replace(nextSpec.getProjectRoot(), ""),
         line: `${line}`,
         column: `${column}`,
         source: `${source}`,

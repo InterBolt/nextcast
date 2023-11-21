@@ -1,8 +1,8 @@
 import { resolve } from "path";
 import { readdirSync, statSync } from "fs";
 import constants from "../../constants";
-import * as Utils from "../../utils";
 import { get } from "lodash";
+import nextSpec from "../../next/nextSpec";
 
 const getPluginDirs = (dataDir: string) =>
   readdirSync(dataDir)
@@ -12,7 +12,7 @@ const getPluginDirs = (dataDir: string) =>
 
 async function rewriteLoader(code: string) {
   const callback = this.async();
-  const dataDir = Utils.getDataDir();
+  const dataDir = nextSpec.getDataDir();
   const names = getPluginDirs(dataDir);
   const resourcePath = this.resourcePath as string;
   let rewrite: string | undefined = undefined;

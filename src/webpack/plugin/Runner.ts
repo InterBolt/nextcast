@@ -4,10 +4,10 @@ import { execSync } from "child_process";
 import colors from "colors/safe";
 import core from "../../core";
 import constants from "../../constants";
-import * as Utils from "../../utils";
 import type * as Types from "../../types";
 import log from "../../log";
 import HHasher from "../../classes/HHasher";
+import nextSpec from "../../next/nextSpec";
 
 const runNextcasts = async (packs: Array<Types.Plugin<any>>) => {
   let previouslyParsed: Record<string, Types.ParsedBabel> = {};
@@ -34,7 +34,7 @@ const runNextcasts = async (packs: Array<Types.Plugin<any>>) => {
 const mapInputDir = (inputDir: string) => {
   return isAbsolute(inputDir)
     ? inputDir
-    : resolve(Utils.getProjectRoot(), inputDir);
+    : resolve(nextSpec.getProjectRoot(), inputDir);
 };
 
 const createTsConfigIfNotExists = (inputDirPath: string) => {
@@ -70,7 +70,7 @@ const compileUserPlugins = (inputDirPath: string) => {
   log.wait(`One sec, gotta compile your nextcasts...`);
 
   execSync(`npx tsc -p ${resolve(inputDirPath, "tsconfig.json")}`, {
-    cwd: Utils.getProjectRoot(),
+    cwd: nextSpec.getProjectRoot(),
     stdio: "inherit",
     encoding: "utf8",
   });
@@ -91,7 +91,7 @@ class RunnerPlugin {
     this.hasher.init();
   }
 
-  public loadUserPlugins = (inputDir: string) => {
+  public loadUserPlugins = async (inputDir: string) => {
     const inputDirPath = mapInputDir(inputDir);
     if (!existsSync(inputDirPath)) {
       throw new Error(
@@ -105,7 +105,7 @@ class RunnerPlugin {
     }
 
     const foundTsConfig = createTsConfigIfNotExists(inputDirPath);
-    this.hasher.runWhenChanged(() => compileUserPlugins(inputDirPath), {
+    await this.hasher.runWhenChanged(() => compileUserPlugins(inputDirPath), {
       namespace: "compile_nextcasts",
       watchDir: inputDirPath,
     });
@@ -128,11 +128,11 @@ class RunnerPlugin {
     compiler.hooks.beforeCompile.tapPromise(
       constants.name[0].toUpperCase() + constants.name.slice(1),
       async () => {
-        this.packs = this.loadUserPlugins(this.inputDir);
+        this.packs = await this.loadUserPlugins(this.inputDir);
 
         await this.hasher.runWhenChanged(() => runNextcasts(this.packs), {
           namespace: "ran_nextcasts",
-          watchDir: Utils.getProjectRoot(),
+          watchDir: nextSpec.getProjectRoot(),
         });
       }
     );

@@ -11,11 +11,11 @@ import {
   ParsedBabel,
   PluginCtx,
 } from "./types";
-import * as Utils from "./utils";
 import SCodemod from "./classes/SCodemod";
+import nextSpec from "./next/nextSpec";
 
 const buildOptions = (name: string, coreOptions: any): CoreOptions => {
-  const dataDir = Utils.getDataDir();
+  const dataDir = nextSpec.getDataDir();
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir);
   }
