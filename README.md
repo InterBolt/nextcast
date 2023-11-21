@@ -8,7 +8,7 @@
 
 _Read the blog post here for a high level description and backstory: https://interbolt.org/blog/nextcast/_
 
-At a high level, **NextCast** is a build tool that makes **static analysis + metaprogramming** accessible to application developers using NextJS's [app router](https://nextjs.org/docs/app). It exposes a user plugin system built on top of [NextJS](https://nextjs.org)'s webpack configuration ([turbopack](https://turbo.build/pack) support coming), [BabelJS](https://babeljs.io/), [Jscodeshift](https://github.com/facebook/jscodeshift), and [ESLint](https://eslint.org/).
+**NextCast** is a build tool that makes **static analysis + metaprogramming** accessible to application developers using NextJS's [app router API](https://nextjs.org/docs/app) via its user plugin system, which is built on top of [Webpack](https://webpack.js.org), [BabelJS](https://babeljs.io/), [Jscodeshift](https://github.com/facebook/jscodeshift), and [ESLint](https://eslint.org/).
 
 A plugin can collect static information about source code, generate helpful artifacts like JSON files and TypeScript interfaces, pipe domain-driven errors and warnings into ESLint, and rewrite code ([webpack loader style](https://webpack.js.org/contribute/writing-a-loader/#guidelines)) during the build process. Plugins define their logic within three different phases:
 

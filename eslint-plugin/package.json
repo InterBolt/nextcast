@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-nextcast",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "main": "./index.js",
   "module": "./index.js",
   "browser": "./index.js",
