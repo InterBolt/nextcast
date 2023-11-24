@@ -14,11 +14,13 @@ A plugin can collect static information about source code, generate helpful arti
 
 - **Syncronous collector phase**: collects information about [NextJS](https://nextjs.org) source code via static analysis.
 - **Async builder phase**: Uses collected source code data and (potentially) external data sources to generate artifacts like JSON files, TypeScript interfaces, documentation, etc.
-- **Syncronous rewriter phase**: Uses gathered information and artifacts to rewrite application code.
+- **Syncronous rewriter phase**: Uses gathered information and artifacts to queue rewrites.
 
 ## What problem does NextCast solve?
 
-NextCast enables NextJS specific meta-frameworks. JS frameworks often make use of a build tool like Webpack or custom compiler like Svelte's to introduce magical properties, such as new syntax or filesystem rules, to application developers. To make these magical properites usable, frameworks package eslint plugins and rules so that errors are revealed before a build is run. NextCast is like a heavily watered-down and opinionated webpack that only works for NextJS. The tight focus enables powerful static analysis, linting, compilation, and code generation for developers interested in augmenting NextJS.
+NextCast enables NextJS specific meta-frameworks. JS frameworks often make use of a build tool like Webpack or custom compiler like Svelte's to introduce magical properties, such as new syntax or filesystem rules, to application developers. To make these magical properites usable, frameworks package eslint plugins and rules so that errors are revealed before a build is run. NextCast is like a heavily watered-down and opinionated combination of webpack's compiler and eslint's custom rule api that only works for NextJS. We're dog fooding NextCast by building our own custom framework on top of NextJS's SSG feature and Cloudflare Page Functions. [Follow me on twitter](https://twitter.com/interbolt_colin) for an announcement of its launch.
+
+> Sneak peak: Our new framework allows automatic preloading of api response data within static html at request-time based on source code analysis. It also disables NextJS's built-in prefetching mechanism without needing to wrap `next/link`.
 
 ## Setup
 
