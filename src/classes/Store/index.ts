@@ -19,7 +19,7 @@ const prohibitAccessProxy = (errorMessage: string) => {
 const uninitializedErrorMessage = `Store not initialized. Must call _dangerouslyStartPlugin().`;
 const endedErrorMessage = `Store is closed. We already called _dangerouslyEndPlugin().`;
 
-type THistory = Pick<
+export type TStoreHistory = Pick<
   Store,
   "_unsafeAccessRegisters" | "_unsafeStore" | "_unsafePluginName"
 >;
@@ -28,7 +28,7 @@ class Store {
   public _unsafeAccessRegisters: Array<Array<string>> = [];
   public _unsafeStore: any = {};
   public _unsafePluginName: string;
-  public _unsafeHistory: Array<THistory> = [];
+  public _unsafeHistory: Array<TStoreHistory> = [];
 
   // by default, these are set to throw errors any time they are accessed
   // this should prevent any accidental access before the plugin is started
@@ -39,7 +39,7 @@ class Store {
     return this._unsafeHistory.map((history) => new Store(history));
   };
 
-  constructor(cacheHistory?: THistory) {
+  constructor(cacheHistory?: TStoreHistory) {
     if (cacheHistory) {
       Object.keys(cacheHistory).forEach((storeKey) => {
         this[storeKey] = cacheHistory[storeKey];

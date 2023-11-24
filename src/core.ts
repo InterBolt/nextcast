@@ -10,9 +10,14 @@ import {
   PluginApi,
   ParsedBabel,
   PluginCtx,
+  NextCtx,
 } from "./types";
 import SCodemod from "./classes/SCodemod";
 import nextSpec from "./next/nextSpec";
+import SNextCtx from "./classes/SNextCtx";
+import log from "./log";
+
+const NEXT_CTX_PLUGIN_NAME = "__NEXT_CTX";
 
 const buildOptions = (name: string, coreOptions: any): CoreOptions => {
   const dataDir = nextSpec.getDataDir();
@@ -32,105 +37,155 @@ const buildOptions = (name: string, coreOptions: any): CoreOptions => {
   return coreOptions;
 };
 
-const core = async <PluginConfig extends any>(
+export const prepluginPhaseRunner = async () => {
+  const store = new Store();
+  store._dangerouslyStartPlugin(NEXT_CTX_PLUGIN_NAME);
+
+  const nextCtx = new SNextCtx(store);
+  const ctx = await nextCtx.load();
+  const parseCache = store.getParseCache();
+  store._dangerouslyEndPlugin();
+
+  return { ctx, parseCache };
+};
+
+export const pluginPhaseRunner = <PluginConfig extends any>(
   plugin: Plugin<PluginConfig>,
+  nextCtx: NextCtx,
   coreOptions: CoreOptions = {},
   prevParseCache: Record<string, ParsedBabel> = {}
-): Promise<any> => {
+): {
+  builder: () => Promise<() => Promise<void>>;
+  parseCache: any;
+} => {
+  let builderError: Error | null = null;
+  let collectorError: Error | null = null;
+
   try {
-    const options = buildOptions(plugin.name, coreOptions);
+    const { Api, pluginCtx, options, store, errors, app } = (() => {
+      const options = buildOptions(plugin.name, coreOptions);
 
-    // setup cache and start the plugin
-    const store = new Store();
-    store._dangerouslyStartPlugin(plugin.name, prevParseCache);
+      // setup cache and start the plugin
+      const store = new Store();
+      store._dangerouslyStartPlugin(plugin.name, prevParseCache);
 
-    // setup setup errors, traversals, and pages
-    const errors = new SErrors(store);
-    const traversals = new STraversals(store);
-    const app = new SApp(store, traversals);
-    const codemod = new SCodemod(store);
+      // setup setup errors, traversals, and pages
+      const errors = new SErrors(store);
+      const traversals = new STraversals(store);
+      const app = new SApp(store, traversals);
+      const codemod = new SCodemod(store);
 
-    // will find and map all the files associated with each route
-    // by following the nextjs conventions for app router files.
-    await app.loadRoutes();
-    const routes = app.getRoutes();
-    const sourceFiles = app.getSourceFiles();
+      // load next ctx data into the cache
+      app.loadNextCtx(nextCtx);
+      const routes = app.getRoutes();
+      const sourceFiles = app.getSourceFiles();
 
-    const Api: PluginApi = {
-      parse: store.parse,
-      traverse: traversals.traverse,
-      modify: codemod.modify,
-      getCollected: app.getCollected,
-      getErrors: errors.getErrors,
-      getWarnings: errors.getWarnings,
-      reportError: errors.reportError,
-      reportWarning: errors.reportWarning,
-      collect: app.collect,
-      queueRewrite: app.queueRewrite,
-      dangerouslyQueueRewrite: app.dangerouslyQueueRewrite,
-      getRewrites: app.getRewrites,
-      _: {
-        getImports: traversals.getImports,
-        getClientComponents: app.getClientComponents,
-        getServerComponents: app.getServerComponents,
-      },
-    };
-
-    const ContextShared: PluginCtx = {
-      sourceFiles,
-      routes,
-      data: null,
-    };
-
-    // run the collector, a function that can "collect" information about
-    // the files in the project. This is the first phase of the plugin.
-    if (typeof plugin.collector === "function") {
-      await plugin.collector(ContextShared, Api);
-    }
-
-    let data: any;
-    if (typeof plugin.reducer === "function") {
-      data = await plugin.reducer(ContextShared, Api);
-    } else {
-      data = app.getCollected();
-    }
-
-    if (typeof plugin.rewriter === "function") {
-      await plugin.rewriter(
-        {
-          ...ContextShared,
-          data: JSON.parse(JSON.stringify(data)),
+      const Api: PluginApi = {
+        parse: store.parse,
+        traverse: traversals.traverse,
+        modify: codemod.modify,
+        getCollected: app.getCollected,
+        getSaved: app.getSaved,
+        getSavedHistory: app.getSavedHistory,
+        getErrors: errors.getErrors,
+        getWarnings: errors.getWarnings,
+        reportError: errors.reportError,
+        reportWarning: errors.reportWarning,
+        collect: app.collect,
+        save: app.save,
+        queueRewrite: app.queueRewrite,
+        dangerouslyQueueRewrite: app.dangerouslyQueueRewrite,
+        getRewrites: app.getRewrites,
+        _: {
+          getImports: traversals.getImports,
+          getClientComponents: app.getClientComponents,
+          getServerComponents: app.getServerComponents,
         },
-        Api
-      );
-    }
+      };
 
-    app.stashCollection(options.nextcastDir);
-    app.stashReducedCollection(options.nextcastDir, data);
-    app.stashErrors(options.nextcastDir, errors.getErrors() as any);
-    app.stashWarnings(options.nextcastDir, errors.getWarnings() as any);
-    app.stashRewrites(options.nextcastDir);
+      const pluginCtx: PluginCtx = {
+        sourceFiles,
+        routes,
+        data: null,
+      };
 
-    const foundErrors = errors.getErrors();
-    if (foundErrors.length > 0) {
-      errors.log();
-    } else {
-      app.executeDangerousRewrites();
-    }
+      try {
+        // run the collector, a function that can "collect" information about
+        // the files in the project. This is the first phase of the plugin.
+        if (typeof plugin.collector === "function") {
+          plugin.collector(pluginCtx, Api);
+        }
+      } catch (err) {
+        log.error(
+          `Failed during the collection phase of the plugin: ${plugin.name}`
+        );
+        collectorError = new Error(err);
+      }
 
-    const parsed = store.getParseCache();
-    // end the plugin so that its included in the cache history and
-    // so that we can't do anything stupid to our state after this.
-    // this might not seem useful now, but the moment we want
-    // some kind of behavior that is not "run once and forget",
-    // this will be useful.
-    store._dangerouslyEndPlugin();
+      return {
+        Api,
+        pluginCtx,
+        options,
+        store,
+        errors,
+        app,
+      };
+    })();
 
-    return parsed;
+    const builder = async () => {
+      try {
+        if (typeof plugin.builder === "function") {
+          await plugin.builder(pluginCtx, Api);
+        }
+      } catch (err) {
+        log.error(
+          `Failed during the builder phase of the plugin: ${plugin.name}`
+        );
+        builderError = new Error(err);
+      }
+
+      const rewriter = async () => {
+        if (collectorError || builderError) {
+          log.error(
+            `Phase ${plugin.name} failed during the collection or builder phase.`
+          );
+
+          return;
+        }
+        if (typeof plugin.rewriter === "function") {
+          plugin.rewriter(pluginCtx, Api);
+        }
+
+        await app.stashCollection(options.nextcastDir);
+        await app.stashSavedBuild(options.nextcastDir);
+        await app.stashErrors(options.nextcastDir, errors.getErrors() as any);
+        await app.stashWarnings(
+          options.nextcastDir,
+          errors.getWarnings() as any
+        );
+        await app.stashRewrites(options.nextcastDir);
+
+        const foundErrors = errors.getErrors();
+        if (foundErrors.length > 0) {
+          errors.log();
+        } else {
+          await app.executeDangerousRewrites();
+        }
+
+        // end the plugin so that its included in the cache history and
+        // so that we can't do anything stupid to our state after this.
+        // this might not seem useful now, but the moment we want
+        // some kind of behavior that is not "run once and forget",
+        // this will be useful.
+        store._dangerouslyEndPlugin();
+      };
+
+      return rewriter;
+    };
+
+    return { builder, parseCache: store.getParseCache() };
   } catch (err) {
     console.error(err);
     process.exit(1);
   }
 };
-
-export default core;

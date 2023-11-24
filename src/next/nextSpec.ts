@@ -77,11 +77,13 @@ const getAppDir = (rootPath?: string): string => {
   return appDir;
 };
 
-type Route = {
+export type NextRoute = {
   filePath: string;
   routePath: string;
   name: string;
   entries: Array<string>;
+  clientComponents: Array<string>;
+  serverComponents: Array<string>;
 };
 
 const isRouteFile = (fileName: string) => {
@@ -101,7 +103,7 @@ const isRouteFile = (fileName: string) => {
   );
 };
 
-const getParentLayoutFiles = (route: Route) => {
+const getParentLayoutFiles = (routePath: string) => {
   const appDir = getAppDir();
   const layouts: Array<{ filePath: string; depth: number }> = [
     {
@@ -109,7 +111,7 @@ const getParentLayoutFiles = (route: Route) => {
       depth: 0,
     },
   ];
-  const routePathArr = route.routePath.split("/").filter((e) => e);
+  const routePathArr = routePath.split("/").filter((e) => e);
   routePathArr.forEach((subpath, i) => {
     const fullSubpath = resolve(appDir, routePathArr.slice(0, i + 1).join("/"));
     const layoutFilePathExt = nextConstants.SOURCE_EXTS.find((ext) => {
@@ -142,9 +144,13 @@ const getParentLayoutFiles = (route: Route) => {
   return layouts.map((layout) => layout.filePath);
 };
 
-const getRouteEntries = async (): Promise<Array<Route>> => {
+const getRouteEntries = async (): Promise<
+  Array<Omit<NextRoute, "clientComponents" | "serverComponents">>
+> => {
   const appDir = getAppDir();
-  const routes: Array<Route> = [];
+  const routes: Array<
+    Omit<NextRoute, "clientComponents" | "serverComponents">
+  > = [];
 
   const files = await glob(`${appDir}/**/*.{js,ts,jsx,tsx}`);
   files.forEach((file) => {
@@ -167,7 +173,7 @@ const getRouteEntries = async (): Promise<Array<Route>> => {
       route.name === "page" ||
       route.name === "not-found";
     if (routeUsesLayouts) {
-      route.entries.push(...getParentLayoutFiles(route));
+      route.entries.push(...getParentLayoutFiles(route.routePath));
     }
     if (route.name === "page") {
       const templateFilePath = nextConstants.SOURCE_EXTS.find((ext) => {

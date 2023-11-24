@@ -1,34 +1,50 @@
 import { isAbsolute, resolve } from "path";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
-import colors from "colors/safe";
-import core from "../../core";
+import { pluginPhaseRunner, prepluginPhaseRunner } from "../../core";
 import constants from "../../constants";
 import type * as Types from "../../types";
 import log from "../../log";
 import HHasher from "../../classes/HHasher";
 import nextSpec from "../../next/nextSpec";
 
+// This will run the preplugin phase first which parses and loads some context
+// that all plugins might need.
+// Then, it runs each plugin's collection phase syncronously, and each
+// of those phases will return a builder function that will be run asyncronously parallel to each other.
+// Then, each builder returns an async rewriter function that will run in series.
 const runNextcasts = async (packs: Array<Types.Plugin<any>>) => {
+  const startTime = Date.now();
   let previouslyParsed: Record<string, Types.ParsedBabel> = {};
-  for (let i = 0; i < packs.length; i++) {
-    const startTime = Date.now();
+  const { parseCache, ctx } = await prepluginPhaseRunner();
 
-    previouslyParsed = await core(
-      packs[i],
+  previouslyParsed = parseCache;
+  const builders = packs.map((pack) => {
+    const { parseCache, builder } = pluginPhaseRunner(
+      pack,
+      ctx,
       {
         rewrite: false,
       },
       previouslyParsed
     );
+    previouslyParsed = parseCache;
+    return builder;
+  });
 
-    log.success(
-      `Ran nextcast: ${colors.blue(packs[i].name)} in ${(
-        (Date.now() - startTime) /
-        1000
-      ).toFixed(2)}s`
-    );
+  const rewriters = await Promise.all(builders.map((builder) => builder()));
+
+  for (let i = 0; i < rewriters.length; i++) {
+    const rewriter = rewriters[i];
+    await rewriter();
   }
+
+  log.success(
+    `Ran nextcasts: [${packs.map((p) => p.name).join(", ")}] in ${(
+      (Date.now() - startTime) /
+      1000
+    ).toFixed(2)}s`
+  );
 };
 
 const mapInputDir = (inputDir: string) => {

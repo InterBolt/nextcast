@@ -75,7 +75,7 @@ class HookCalls implements TNextcast.CustomPlugin {
     });
   };
 
-  public reducer: TNextcast.Reducer = async (ctx) => {
+  public builder: TNextcast.Builder = async (ctx) => {
     const { collection } = ctx;
 
     return collection;

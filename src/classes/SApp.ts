@@ -4,9 +4,10 @@ import type STraversals from "./STraversals";
 import type { IErrorOrWarning } from "./SErrors";
 import Store from "./Store/index";
 import constants from "../constants";
-import { JSONValue, Route } from "../types";
+import { JSONValue, NextCtx, Route } from "../types";
 import { uniq } from "lodash";
 import nextSpec from "../next/nextSpec";
+import { readdir, writeFile } from "fs/promises";
 
 class SApp {
   private store: Store;
@@ -47,35 +48,8 @@ class SApp {
 
   private _path = (routeName: string) => ["routes", routeName] as const;
 
+  private _pathToAppSaved = ["saves"] as const;
   private _pathAppCollection = ["route_type_collection"] as const;
-
-  private _mapToComponentTypes = (
-    files: Array<string>
-  ): { clientComponents: Array<string>; serverComponents: Array<string> } => {
-    return files
-      .map((filePath) => {
-        const fileContents = readFileSync(filePath, "utf8");
-        const lines = fileContents.split("\n");
-        return lines.some(
-          (line) =>
-            line.trim() === `"use client"` ||
-            line.trim() === `"use client";` ||
-            line.trim() === `'use client'` ||
-            line.trim() === `'use client';`
-        );
-      })
-      .reduce(
-        (accum, hasClientDirective, i) => {
-          if (hasClientDirective) accum.clientComponents.push(files[i]);
-          else accum.serverComponents.push(files[i]);
-          return accum;
-        },
-        {
-          clientComponents: [],
-          serverComponents: [],
-        }
-      );
-  };
 
   public queueRewrite = (filePath: string, code: string) => {
     this.store.writes.merge<string>(this._pathRewritesToCommit, {
@@ -108,8 +82,9 @@ class SApp {
       );
     }
 
-    const cachePath = this._pathAppCollection;
-    const dataset = this.store.reads.get<Array<JSONValue>>(cachePath);
+    const dataset = this.store.reads.get<Array<JSONValue>>(
+      this._pathAppCollection
+    );
 
     if (!Array.isArray(dataset)) {
       throw new Error(`Cannot push data to route because it is not an array.`);
@@ -118,10 +93,44 @@ class SApp {
     dataset.push(data);
   };
 
+  public save = (data: JSONValue) => {
+    try {
+      JSON.stringify(data);
+    } catch (err) {
+      throw new Error(
+        `Cannot collect data because it is not JSON serializable.`
+      );
+    }
+
+    const dataset = this.store.reads.get<Array<JSONValue>>(
+      this._pathToAppSaved
+    );
+
+    if (!Array.isArray(dataset)) {
+      throw new Error(`Cannot push data to route because it is not an array.`);
+    }
+
+    dataset.unshift(data);
+  };
+
   public getCollected = () =>
     JSON.parse(
       JSON.stringify(
         this.store.reads.get<Array<JSONValue>>(this._pathAppCollection) || []
+      )
+    );
+
+  public getSaved = () =>
+    JSON.parse(
+      JSON.stringify(
+        (this.store.reads.get<Array<JSONValue>>(this._pathToAppSaved) || [])[0]
+      )
+    );
+
+  public getSavedHistory = () =>
+    JSON.parse(
+      JSON.stringify(
+        this.store.reads.get<Array<JSONValue>>(this._pathToAppSaved) || []
       )
     );
 
@@ -176,7 +185,7 @@ class SApp {
     return usedFromCache ? names.sort() : names;
   };
 
-  public stashCollection = (dataDir: string) => {
+  public stashCollection = async (dataDir: string) => {
     if (!existsSync(dataDir)) {
       throw new Error(
         `Cannot commit collection because ${dataDir} does not exist.`
@@ -187,13 +196,13 @@ class SApp {
     const collection = this.store.reads.get<Array<JSONValue>>(cachePath) || [];
 
     this.overwriteProtection(dataDir);
-    writeFileSync(
+    await writeFile(
       resolve(dataDir, constants.collectionFileName),
       JSON.stringify(collection, null, 2)
     );
   };
 
-  public stashReducedCollection = (dataDir: string, reduced: JSONValue) => {
+  public stashSavedBuild = async (dataDir: string) => {
     if (!existsSync(dataDir)) {
       throw new Error(
         `Cannot commit reduced collection because ${dataDir} does not exist.`
@@ -201,13 +210,13 @@ class SApp {
     }
 
     this.overwriteProtection(dataDir);
-    writeFileSync(
+    writeFile(
       resolve(dataDir, constants.dataFileName),
-      JSON.stringify(reduced, null, 2)
+      JSON.stringify(this.getSaved(), null, 2)
     );
   };
 
-  private stashErrorsOrWarnings = (
+  private stashErrorsOrWarnings = async (
     dataDir: string,
     errorsOrWarnings: Array<IErrorOrWarning>,
     level: "warning" | "error"
@@ -226,14 +235,18 @@ class SApp {
         : constants.errorsFileName
     );
 
-    writeFileSync(dataPath, JSON.stringify(errorsOrWarnings, null, 2));
+    await writeFile(dataPath, JSON.stringify(errorsOrWarnings, null, 2));
   };
 
-  public stashErrors = (dataDir: string, errors: Array<IErrorOrWarning>) =>
-    this.stashErrorsOrWarnings(dataDir, errors, "error");
+  public stashErrors = async (
+    dataDir: string,
+    errors: Array<IErrorOrWarning>
+  ) => this.stashErrorsOrWarnings(dataDir, errors, "error");
 
-  public stashWarnings = (dataDir: string, warnings: Array<IErrorOrWarning>) =>
-    this.stashErrorsOrWarnings(dataDir, warnings, "warning");
+  public stashWarnings = async (
+    dataDir: string,
+    warnings: Array<IErrorOrWarning>
+  ) => this.stashErrorsOrWarnings(dataDir, warnings, "warning");
 
   public getRewrites = () => {
     return {
@@ -262,7 +275,7 @@ class SApp {
     );
   };
 
-  public stashRewrites = (dataDir: string) => {
+  public stashRewrites = async (dataDir: string) => {
     if (!existsSync(dataDir)) {
       throw new Error(
         `Cannot commit rewrites because ${dataDir} does not exist.`
@@ -270,78 +283,41 @@ class SApp {
     }
 
     this.overwriteProtection(dataDir);
-    writeFileSync(
+    await writeFile(
       resolve(dataDir, constants.rewritesFileName),
       JSON.stringify(this.getRewrites(), null, 2)
     );
   };
 
-  public getStashed = (dataDir: string) => {
-    if (!existsSync(dataDir)) {
-      throw new Error(`Committed data folder ${dataDir} does not exist.`);
-    }
-
-    return readdirSync(dataDir)
-      .filter((name) => name.endsWith(".json"))
-      .reduce((accum, fileName) => {
-        try {
-          const filePath = resolve(dataDir, fileName);
-          const file = JSON.parse(readFileSync(filePath, "utf8"));
-          return {
-            ...accum,
-            [fileName]: file,
-          };
-        } catch (err) {
-          throw new Error(`Failed to parse ${fileName} in ${dataDir}.`);
-        }
-      }, {} as Record<string, JSONValue>);
-  };
-
-  public executeDangerousRewrites = () => {
+  public executeDangerousRewrites = async () => {
     const rewriteMap = this.store.reads.get<Record<string, string>>(
       this._pathDangerousRewritesToCommit
     );
-
-    Object.entries(rewriteMap).forEach(([filePath, code]) => {
+    Object.keys(rewriteMap).map((filePath) => {
       this.overwriteProtection(filePath);
-      writeFileSync(filePath, code);
     });
+
+    await Promise.all(
+      Object.entries(rewriteMap).map(([filePath, code]) =>
+        writeFile(filePath, code)
+      )
+    );
   };
 
-  public loadRoutes = async () => {
-    const routes = await nextSpec.getRouteEntries();
+  public loadNextCtx = (ctx: NextCtx) => {
+    const { routes } = ctx;
 
     this.store.registerAccessPath(this._pathDangerousRewritesToCommit, {});
     this.store.registerAccessPath(this._pathDangerousRewriteHistory, []);
     this.store.registerAccessPath(this._pathRewritesToCommit, {});
     this.store.registerAccessPath(this._pathRewriteHistory, []);
     this.store.registerAccessPath(this._pathAppCollection, []);
-    routes.forEach(({ routePath, entries }) => {
-      const routeCachePath = this._path(routePath);
-      this.store.registerAccessPath(this._pathCollection(routePath), []);
-
-      const nextRoute = {
-        name: routePath,
-        entries,
-        files: entries
-          .map((entry) => this.traversals.extractFilePaths(entry))
-          .flat()
-          .reduce(
-            (unique, filePath) =>
-              unique.includes(filePath) ? unique : unique.concat([filePath]),
-            [] as Array<string>
-          ),
-      };
-
-      const { clientComponents, serverComponents } = this._mapToComponentTypes(
-        nextRoute.files
-      );
-
-      this.store.registerAccessPath(routeCachePath, {
-        ...nextRoute,
-        clientComponents,
-        serverComponents,
-      });
+    this.store.registerAccessPath(this._pathToAppSaved, []);
+    routes.forEach((route) => {
+      const { name } = route;
+      const routeCachePath = this._path(name);
+      this.store.registerAccessPath(this._pathCollection(name), []);
+      this.store.registerAccessPath(routeCachePath, Object.freeze(route));
     });
   };
 }

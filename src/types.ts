@@ -22,12 +22,15 @@ export type PluginApi = {
   traverse: STraversals["traverse"];
   modify: SCodemod["modify"];
   collect: SApp["collect"];
+  save: SApp["save"];
   queueRewrite: SApp["queueRewrite"];
   dangerouslyQueueRewrite: SApp["dangerouslyQueueRewrite"];
   reportError: SErrors["reportError"];
   reportWarning: SErrors["reportWarning"];
   getRewrites: SApp["getRewrites"];
   getCollected: SApp["getCollected"];
+  getSaved: SApp["getSaved"];
+  getSavedHistory: SApp["getSavedHistory"];
   getErrors: SErrors["getErrors"];
   getWarnings: SErrors["getWarnings"];
   _: {
@@ -51,20 +54,30 @@ export type Route = {
   clientComponents: Array<string>;
 };
 
-export type Collector = (ctx: PluginCtx, api: PluginApi) => Promise<void>;
+export type Collector = (ctx: PluginCtx, api: PluginApi) => undefined;
 
-export type Rewriter = (ctx: PluginCtx, api: PluginApi) => Promise<void>;
+export type Builder = (ctx: PluginCtx, api: PluginApi) => Promise<undefined>;
 
-export type Reducer = (ctx: PluginCtx, api: PluginApi) => Promise<JSONValue>;
+export type Rewriter = <T>(ctx: PluginCtx, api: PluginApi) => undefined;
 
 export class Plugin<Config extends Record<string, any>> {
   public name: string;
   public config: Config;
 
   public collector: Collector;
-  public reducer?: Reducer;
+  public builder?: Builder;
   public rewriter?: Rewriter;
 }
+
+export type NextCtx = {
+  routes: Array<{
+    name: string;
+    entries: Array<string>;
+    files: Array<string>;
+    clientComponents: Array<string>;
+    serverComponents: Array<string>;
+  }>;
+};
 
 export type CoreOptions = {
   inputDir?: string;

@@ -33,9 +33,11 @@
     "@babel/traverse": "^7.23.3",
     "app-root-path": "^3.1.0",
     "colors": "^1.4.0",
+    "eslint-plugin-nextcast": "file:eslint-plugin",
     "glob": "^10.3.10",
     "jscodeshift": "^0.15.1",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "nextcast": "file:"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
@@ -46,12 +48,12 @@
     "@types/jscodeshift": "^0.11.9",
     "@types/lodash": "^4.14.200",
     "@types/node": "^20",
-    "eslint-plugin-nextcast": "file:./eslint-plugin",
     "rimraf": "^5.0.5",
     "rollup": "^4.4.1",
     "semver": "^7.5.4",
     "type-fest": "^4.7.1",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "eslint-plugin-nextcast": "file:./eslint-plugin"
   },
   "homepage": "https://github.com/InterBolt/nextcast#readme",
   "repository": {
