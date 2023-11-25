@@ -1,6 +1,6 @@
 import { dirname, isAbsolute, join, resolve } from "path";
-import * as Utils from "@src/utils";
-import constants from "@src/constants";
+import * as Utils from "../utils";
+import constants from "../constants";
 import {
   existsSync,
   mkdirSync,
@@ -12,7 +12,7 @@ import {
 } from "fs";
 import { createHash } from "crypto";
 import { glob } from "glob";
-import nextSpec from "@src/next/nextSpec";
+import nextSpec from "../next/nextSpec";
 
 class HHasher {
   public initialized = false;
@@ -207,23 +207,40 @@ class HHasher {
     const { namespace = "sourcecode", watchDir = null } = opts;
 
     const hash = await this._getSourceCodeHash(watchDir);
-    const cachePath = resolve(this.hashDir, `${namespace}.txt`);
+    const cachePath = resolve(this.hashDir, `${namespace}-${hash}.txt`);
 
-    const cachedHash = (() => {
+    if (existsSync(cachePath)) {
       try {
-        return readFileSync(cachePath, "utf8");
-      } catch (e) {
-        return "";
-      }
-    })();
+        let result = JSON.parse(readFileSync(cachePath, "utf8")).result;
 
-    if (cachedHash === hash) {
-      return;
+        if (result === "pending") {
+          result = await new Promise((resolve) => {
+            const interval = setInterval(() => {
+              const nextResult = JSON.parse(
+                readFileSync(cachePath, "utf8")
+              ).result;
+              if (nextResult !== "pending") {
+                resolve(nextResult);
+                clearInterval(interval);
+              }
+            }, 100);
+          });
+
+          return result;
+        }
+
+        return result;
+      } catch (err) {
+        console.error(err);
+        return;
+      }
     }
 
-    writeFileSync(cachePath, hash);
+    writeFileSync(cachePath, JSON.stringify({ result: "pending" }));
 
     const result = await run();
+
+    writeFileSync(cachePath, JSON.stringify({ result }));
 
     return result;
   };

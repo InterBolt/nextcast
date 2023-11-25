@@ -8,6 +8,7 @@ import type * as Types from "@src/types";
 import log from "@log";
 import HHasher from "@src/classes/HHasher";
 import nextSpec from "@src/next/nextSpec";
+import compilerHookRewrite from "./compilerHookRewrite";
 
 // This will run the preplugin phase first which parses and loads some context
 // that all plugins might need.
@@ -46,7 +47,7 @@ const runNextcasts = async (plugins: Array<Types.Plugin<any>>) => {
     stashers.map((stasher) => stasher.stash())
   );
 
-  let currentRewrites = {};
+  let currentRewrites: Record<string, string> = {};
   for (const transform of transforms) {
     currentRewrites = await transform(currentRewrites);
   }
@@ -61,6 +62,8 @@ const runNextcasts = async (plugins: Array<Types.Plugin<any>>) => {
       1000
     ).toFixed(2)}s`
   );
+
+  return currentRewrites;
 };
 
 const mapInputDir = (inputDir: string) => {
@@ -120,6 +123,9 @@ interface Options {
 }
 
 class RunnerPlugin {
+  public webpackPluginName =
+    constants.name[0].toUpperCase() + constants.name.slice(1);
+  public rewrites: Record<string, string> = {};
   public hasher: HHasher;
   public inputDir: string;
   public plugins: Array<Types.Plugin<any>>;
@@ -166,16 +172,28 @@ class RunnerPlugin {
     return this.options.getPlugins(userPlugins);
   };
 
-  apply(compiler: any) {
+  async apply(compiler: any) {
     compiler.hooks.beforeCompile.tapPromise(
-      constants.name[0].toUpperCase() + constants.name.slice(1),
+      this.webpackPluginName,
       async () => {
         this.plugins = await this.loadUserPlugins(this.inputDir);
 
-        await this.hasher.runWhenChanged(() => runNextcasts(this.plugins), {
-          namespace: "ran_nextcasts",
-          watchDir: nextSpec.getProjectRoot(),
+        const nextRewrites = await this.hasher.runWhenChanged(
+          () => runNextcasts(this.plugins),
+          {
+            namespace: "ran_nextcasts",
+            watchDir: nextSpec.getProjectRoot(),
+          }
+        );
+
+        Object.keys(this.rewrites).forEach((filePath) => {
+          delete this.rewrites[filePath];
         });
+        Object.keys(nextRewrites).forEach((filePath) => {
+          this.rewrites[filePath] = nextRewrites[filePath];
+        });
+
+        compilerHookRewrite(this.webpackPluginName, this.rewrites, compiler);
       }
     );
   }

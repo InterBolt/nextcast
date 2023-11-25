@@ -27,9 +27,9 @@ class SApp {
     }
   };
 
-  private _pathToInitializedTransforms = ["transforms"] as const;
+  private _pathToInitializedTransforms = ["initialized_transforms"] as const;
   private _pathToFileTransforms = (filePath: string) =>
-    ["initialized_transforms", filePath] as const;
+    ["transforms", filePath] as const;
 
   private _pathCollection = (routeName: string) =>
     ["route_collections", routeName] as const;
@@ -73,9 +73,12 @@ class SApp {
     // transforms.
     const nextTransforms = Object.keys(queuedTransforms)
       .sort()
-      .reduce((accumTransforms: JSONValue, filePath: string) => {
-        const transforms: Array<Parameters<SCodemod["modify"]>[1]> =
-          queuedTransforms[filePath] || [];
+      .reduce((accumTransforms: Record<string, string>, filePath: string) => {
+        type Transform = Parameters<SCodemod["modify"]>[1];
+        const transforms: Array<Transform> =
+          this.store.reads.get<Array<Transform>>(
+            this._pathToFileTransforms(filePath)
+          ) || [];
         if (!Array.isArray(transforms)) {
           throw new Error(
             `Expected transforms to be an array for ${filePath}. Found: ${typeof transforms}}: ${transforms}`

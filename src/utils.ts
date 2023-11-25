@@ -166,3 +166,7 @@ export const getPackageDeps = (dir?: string) => {
     },
   };
 };
+
+export const removeExtension = (filePath: string) => {
+  return filePath.replace(/\.[^/.]+$/, "");
+};

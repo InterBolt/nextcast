@@ -1,6 +1,6 @@
 import { resolve } from "path";
 import constants from "@src/constants";
-import RunnerPlugin from "@src/webpack/plugin/Runner";
+import NextCastWebpackPlugin from "@src/webpack/plugin";
 import * as Types from "@src/types";
 import nextSpec from "@src/next/nextSpec";
 import { existsSync } from "fs";
@@ -48,23 +48,8 @@ export const withNextCast = (
 
   const webpack = (config: any, nextWebpackOptions: any) => {
     config.plugins.push(
-      new RunnerPlugin({ inputDir: constants.userDir, getPlugins })
+      new NextCastWebpackPlugin({ inputDir: constants.userDir, getPlugins })
     );
-
-    config.module.rules.push({
-      // Run on the root layout because we'll attach the lookahead data
-      // to the body tag as a data attribute.
-      test: /\.(js|jsx|ts|tsx)$/,
-      use: [
-        {
-          loader: resolve(__dirname, "webpack/loaders/rewrite.js"),
-        },
-      ],
-      // we must run this before attaching data to the root layout
-      // in the loader below so that we don't lose our data attribute
-      // in the process of executing rewrites.
-      enforce: "pre",
-    });
 
     if (typeof nextConfig.webpack === "function") {
       return nextConfig.webpack(config, nextWebpackOptions);

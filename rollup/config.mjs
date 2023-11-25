@@ -1,6 +1,7 @@
 import commonjs from "@rollup/plugin-commonjs";
 import pluginPrepareRelease from "./plugin-prepare-release.mjs";
 import pluginCompileTSC from "./plugin-compile-tsc.mjs";
+import pluginRebuildDemo from "./plugin-rebuild-demo.mjs";
 import { resolve } from "path";
 import { glob } from "glob";
 import { statSync } from "fs";
@@ -45,5 +46,6 @@ export default {
     pluginCompileTSC(),
     commonjs(),
     pluginPrepareRelease(),
+    pluginRebuildDemo(),
   ],
 };

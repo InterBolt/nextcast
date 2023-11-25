@@ -24,6 +24,7 @@
   ],
   "scripts": {
     "dev:build": "rimraf dist && npx rollup -wc ./rollup/config.mjs --environment BUILD:local",
+    "dev:rebuild": "rimraf dist && npx rollup -wc ./rollup/config.mjs --environment BUILD:local,REBUILD:true",
     "ci:build": "rimraf dist && npx rollup -c ./rollup/config.mjs --environment BUILD:ci",
     "ci:test": "echo \"No tests yet\"",
     "prepublishOnly": "PUBLISH=true npm run ci:build",
@@ -49,6 +50,7 @@
     "@types/jscodeshift": "^0.11.9",
     "@types/lodash": "^4.14.200",
     "@types/node": "^20",
+    "@types/webpack-sources": "^3.2.3",
     "eslint-plugin-nextcast": "file:./eslint-plugin",
     "rimraf": "^5.0.5",
     "rollup": "^4.4.1",
