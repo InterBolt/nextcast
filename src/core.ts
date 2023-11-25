@@ -49,6 +49,8 @@ export const prepluginPhaseRunner = async () => {
   return { ctx, parseCache };
 };
 
+// will run collector, then return builder, then return rewriter
+// this way we can choose a different run strategy for each phase
 export const pluginPhaseRunner = <PluginConfig extends any>(
   plugin: Plugin<PluginConfig>,
   nextCtx: NextCtx,
@@ -120,6 +122,7 @@ export const pluginPhaseRunner = <PluginConfig extends any>(
           `Failed during the collection phase of the plugin: ${plugin.name}`
         );
         collectorError = new Error(err);
+        console.error(collectorError);
       }
 
       return {
@@ -142,6 +145,7 @@ export const pluginPhaseRunner = <PluginConfig extends any>(
           `Failed during the builder phase of the plugin: ${plugin.name}`
         );
         builderError = new Error(err);
+        console.error(builderError);
       }
 
       const rewriter = async () => {
@@ -172,11 +176,6 @@ export const pluginPhaseRunner = <PluginConfig extends any>(
           await app.executeDangerousRewrites();
         }
 
-        // end the plugin so that its included in the cache history and
-        // so that we can't do anything stupid to our state after this.
-        // this might not seem useful now, but the moment we want
-        // some kind of behavior that is not "run once and forget",
-        // this will be useful.
         store._dangerouslyEndPlugin();
       };
 
@@ -185,7 +184,10 @@ export const pluginPhaseRunner = <PluginConfig extends any>(
 
     return { builder, parseCache: store.getParseCache() };
   } catch (err) {
-    console.error(err);
+    // only log if we didn't already log the error in the builder or collector
+    if (!builderError && !collectorError) {
+      console.error(err);
+    }
     process.exit(1);
   }
 };

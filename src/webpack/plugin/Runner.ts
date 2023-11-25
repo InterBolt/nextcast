@@ -13,15 +13,15 @@ import nextSpec from "../../next/nextSpec";
 // Then, it runs each plugin's collection phase syncronously, and each
 // of those phases will return a builder function that will be run asyncronously parallel to each other.
 // Then, each builder returns an async rewriter function that will run in series.
-const runNextcasts = async (packs: Array<Types.Plugin<any>>) => {
+const runNextcasts = async (plugins: Array<Types.Plugin<any>>) => {
   const startTime = Date.now();
   let previouslyParsed: Record<string, Types.ParsedBabel> = {};
   const { parseCache, ctx } = await prepluginPhaseRunner();
 
   previouslyParsed = parseCache;
-  const builders = packs.map((pack) => {
+  const builders = plugins.map((plugin) => {
     const { parseCache, builder } = pluginPhaseRunner(
-      pack,
+      plugin,
       ctx,
       {
         rewrite: false,
@@ -40,7 +40,7 @@ const runNextcasts = async (packs: Array<Types.Plugin<any>>) => {
   }
 
   log.success(
-    `Ran nextcasts: [${packs.map((p) => p.name).join(", ")}] in ${(
+    `Ran nextcasts: [${plugins.map((p) => p.name).join(", ")}] in ${(
       (Date.now() - startTime) /
       1000
     ).toFixed(2)}s`
@@ -92,27 +92,35 @@ const compileUserPlugins = (inputDirPath: string) => {
   });
 
   log.success(
-    `Compiled your packs in ${((Date.now() - startTime) / 1000).toFixed(2)}s`
+    `Compiled your plugins in ${((Date.now() - startTime) / 1000).toFixed(2)}s`
   );
 };
+
+interface Options {
+  inputDir: string;
+  getPlugins: (
+    userPlugins: Array<Types.Plugin<any>>
+  ) => Array<Types.Plugin<any>>;
+}
 
 class RunnerPlugin {
   public hasher: HHasher;
   public inputDir: string;
-  public packs: Array<Types.Plugin<any>>;
+  public plugins: Array<Types.Plugin<any>>;
+  public options: Options;
 
-  constructor(options: { inputDir: string }) {
+  constructor(options: Options) {
     this.inputDir = options.inputDir;
     this.hasher = new HHasher();
     this.hasher.init();
+    this.options = options;
   }
 
   public loadUserPlugins = async (inputDir: string) => {
     const inputDirPath = mapInputDir(inputDir);
     if (!existsSync(inputDirPath)) {
-      throw new Error(
-        `${constants.name} error: could not find packs input directory at ${inputDirPath}`
-      );
+      log.info(`${constants.name}: no user plugins exist`);
+      return this.options.getPlugins([]);
     }
 
     const tsEntryPath = resolve(inputDirPath, "index.ts");
@@ -126,27 +134,29 @@ class RunnerPlugin {
       watchDir: inputDirPath,
     });
 
-    const packs = require(resolve(
+    const plugins = require(resolve(
       inputDirPath,
       foundTsConfig.compilerOptions.outDir,
       "index.js"
     )).default;
-    if (typeof packs === "undefined" || !Array.isArray(packs)) {
+    if (typeof plugins === "undefined" || !Array.isArray(plugins)) {
       throw new Error(
-        `${constants.name} error: ${inputDirPath}/index.{ts,js} must include a default export that is an array of packs.`
+        `${constants.name} error: ${inputDirPath}/index.{ts,js} must include a default export that is an array of plugins.`
       );
     }
 
-    return packs as Array<Types.Plugin<any>>;
+    const userPlugins = plugins as Array<Types.Plugin<any>>;
+
+    return this.options.getPlugins(userPlugins);
   };
 
   apply(compiler: any) {
     compiler.hooks.beforeCompile.tapPromise(
       constants.name[0].toUpperCase() + constants.name.slice(1),
       async () => {
-        this.packs = await this.loadUserPlugins(this.inputDir);
+        this.plugins = await this.loadUserPlugins(this.inputDir);
 
-        await this.hasher.runWhenChanged(() => runNextcasts(this.packs), {
+        await this.hasher.runWhenChanged(() => runNextcasts(this.plugins), {
           namespace: "ran_nextcasts",
           watchDir: nextSpec.getProjectRoot(),
         });

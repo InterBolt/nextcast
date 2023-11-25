@@ -1,12 +1,61 @@
 import { resolve } from "path";
 import constants from "./constants";
 import RunnerPlugin from "./webpack/plugin/Runner";
+import * as Types from "./types";
+import nextSpec from "./next/nextSpec";
+import { existsSync } from "fs";
 
-export const withNextcast = (nextConfig: any, opts?: { inputDir?: string }) => {
-  const { inputDir = constants.userDir } = opts || {};
+export const withNextcast = (
+  nextConfig: Record<string, any>,
+  opts?: {
+    plugins?:
+      | ((
+          userPlugins: Array<Types.Plugin<any>>
+        ) => Array<string | Types.Plugin<any>>)
+      | Array<string | Types.Plugin<any>>;
+  }
+) => {
+  const { plugins = [] } = opts || {};
+  const getPlugins = (
+    userPlugins: Array<Types.Plugin<any>>
+  ): Array<Types.Plugin<any>> => {
+    return (
+      typeof plugins === "function"
+        ? plugins(userPlugins)
+        : plugins.concat(userPlugins)
+    )
+      .flat()
+      .map((plugin) => {
+        if (typeof plugin !== "string") {
+          return plugin;
+        }
+        const nodeModulesPathToPlugin = resolve(
+          nextSpec.getProjectRoot(),
+          "node_modules",
+          plugin,
+          "dist"
+        );
+        const relativePathToPlugin = resolve(
+          nextSpec.getProjectRoot(),
+          plugin,
+          "dist"
+        );
+        if (existsSync(nodeModulesPathToPlugin)) {
+          return require(nodeModulesPathToPlugin);
+        }
+        if (existsSync(relativePathToPlugin)) {
+          return require(relativePathToPlugin);
+        }
+        throw new Error(
+          `${constants.name} error: could not resolve plugin path: ${plugin}`
+        );
+      });
+  };
 
   const webpack = (config: any, nextWebpackOptions: any) => {
-    config.plugins.push(new RunnerPlugin({ inputDir }));
+    config.plugins.push(
+      new RunnerPlugin({ inputDir: constants.userDir, getPlugins })
+    );
 
     config.module.rules.push({
       // Run on the root layout because we'll attach the lookahead data
