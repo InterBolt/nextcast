@@ -1,6 +1,6 @@
 {
   "name": "nextcast",
-  "version": "0.1.0-alpha.13",
+  "version": "0.1.0-alpha.14",
   "main": "./dist/src/index.js",
   "module": "./dist/src/index.js",
   "browser": "./dist/src/index.js",
