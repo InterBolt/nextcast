@@ -12,15 +12,23 @@ _Read the blog post here for a high level description and backstory: https://int
 
 A plugin can collect static information about source code, generate helpful artifacts like JSON files and TypeScript interfaces, pipe domain-driven errors and warnings into ESLint, and rewrite code ([webpack loader style](https://webpack.js.org/contribute/writing-a-loader/#guidelines)) during the build process. Plugins define their logic within three different phases:
 
-- **Syncronous collector phase**: collects information about [NextJS](https://nextjs.org) source code via static analysis.
-- **Async builder phase**: Uses collected source code data and (potentially) external data sources to generate artifacts like JSON files, TypeScript interfaces, documentation, etc.
-- **Syncronous rewriter phase**: Uses gathered information and artifacts to queue rewrites.
+- **Collector phase (sync, series)**: Collect information about [NextJS](https://nextjs.org) source code via static analysis. Used for accummulating data based on babel traversals. Each plugin's collector runs in the order the plugins were defined, making it easy for plugin authors to leverage collected data from a "base" plugin, third party or their own.
 
-## What problem does NextCast solve?
+- **Builder phase (async, parallel)**: Uses the data collected in the collector phase in combination with any number of possible internal or external data sources to produce useful information to lend our rewrite logic. Each plugin's builder phase will run in parallel.
 
-NextCast enables NextJS specific meta-frameworks. JS frameworks often make use of a build tool like Webpack or custom compiler like Svelte's to introduce magical properties, such as new syntax or filesystem rules, to application developers. To make these magical properites usable, frameworks package eslint plugins and rules so that errors are revealed before a build is run. NextCast is like a heavily watered-down and opinionated combination of webpack's compiler and eslint's custom rule api that only works for NextJS. We're dog fooding NextCast by building our own custom framework on top of NextJS's SSG feature and Cloudflare Page Functions. [Follow me on twitter](https://twitter.com/interbolt_colin) for an announcement of its launch.
+- **Rewriter phase (async, series)**: Uses gathered information and artifacts to queue rewrites. Each plugin's rewriter must await the previously defined plugin's rewriter to run, which means plugin authors should only use async code for things like filesystem access.
 
-> Sneak peak: Our new framework allows automatic preloading of api response data within static html at request-time based on source code analysis. It also disables NextJS's built-in prefetching mechanism without needing to wrap `next/link`.
+### What problem does NextCast solve?
+
+**NextCast** enables NextJS specific meta-frameworks. JS frameworks often make use of a build tool like Webpack or a custom compiler like Svelte's to introduce application developers to new magical properties, such as new syntax or filesystem rules. To make these magical properites usable, frameworks package eslint plugins and rules so that errors are revealed before a build or compile step runs. **NextCast** is like a heavily watered-down and opinionated combination of webpack's compiler and eslint's custom rule api that only works for NextJS. I'm dog fooding **NextCast** by building our my custom framework on top of [NextJS's SSG feature](https://nextjs.org/docs/app/building-your-application/deploying/static-exports) and [Cloudflare Page Functions](https://developers.cloudflare.com/pages/platform/functions/get-started/). [Follow me on twitter](https://twitter.com/interbolt_colin) for an announcement of its launch.
+
+### Reporting linter errors and warnings
+
+During any phase, plugin authors can call a function to report errors or warnings as they detect them. These errors are automatically piped into ESLint when `eslint-plugin-nextcast` is installed and configured. _Note: for NPM >= 7 users, `eslint-plugin-nextcast` is automatically installed via `npm i -D nextcast`_.
+
+### Why support only [NextJS](https://nextjs.org)?
+
+I feel strongly that **NextCast** delivers the most value when its constrained to a single JS framework. Due to the high availability of compilers, bundlers, and transpilers in the ecosystem, JS frameworks are notorious for creating unique syntactic properties and/or architecture conventions, which means keeping up with version upgrades is no small task. I hope that focusing on a single framework inspires more confidence in downstream developers.
 
 ## Setup
 
