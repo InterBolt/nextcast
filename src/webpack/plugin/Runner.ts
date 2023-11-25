@@ -1,5 +1,6 @@
 import { isAbsolute, resolve } from "path";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import { execSync } from "child_process";
 import { pluginPhaseRunner, prepluginPhaseRunner } from "../../core";
 import constants from "../../constants";
@@ -15,32 +16,47 @@ import nextSpec from "../../next/nextSpec";
 // Then, each builder returns an async rewriter function that will run in series.
 const runNextcasts = async (plugins: Array<Types.Plugin<any>>) => {
   const startTime = Date.now();
-  let previouslyParsed: Record<string, Types.ParsedBabel> = {};
-  const { parseCache, ctx } = await prepluginPhaseRunner();
 
-  previouslyParsed = parseCache;
+  let lastParseCache: Record<string, Types.ParsedBabel> = null;
+  const { parseCache: initialParseCache, ctx } = await prepluginPhaseRunner();
   const builders = plugins.map((plugin) => {
     const { parseCache, builder } = pluginPhaseRunner(
       plugin,
       ctx,
-      {
-        rewrite: false,
-      },
-      previouslyParsed
+      lastParseCache || initialParseCache
     );
-    previouslyParsed = parseCache;
+    lastParseCache = parseCache;
     return builder;
   });
 
   const rewriters = await Promise.all(builders.map((builder) => builder()));
 
-  for (let i = 0; i < rewriters.length; i++) {
-    const rewriter = rewriters[i];
-    await rewriter();
+  const stashers: Array<Awaited<ReturnType<(typeof rewriters)[0]>>> = [];
+  for (const rewriter of rewriters) {
+    stashers.push(await rewriter());
   }
 
+  const errorFound = stashers.some((stasher) => !!stasher.error);
+  if (errorFound) {
+    log.error(`Did not commit NextCast filesystem changes due to error(s)`);
+    return;
+  }
+
+  const transforms = await Promise.all(
+    stashers.map((stasher) => stasher.stash())
+  );
+
+  let currentRewrites = {};
+  for (const transform of transforms) {
+    currentRewrites = await transform(currentRewrites);
+  }
+  await writeFile(
+    resolve(nextSpec.getProjectRoot(), constants.transformsPath),
+    JSON.stringify(currentRewrites)
+  );
+
   log.success(
-    `Ran nextcasts: [${plugins.map((p) => p.name).join(", ")}] in ${(
+    `Committed nextcasts: [${plugins.map((p) => p.name).join(", ")}] in ${(
       (Date.now() - startTime) /
       1000
     ).toFixed(2)}s`
@@ -53,7 +69,7 @@ const mapInputDir = (inputDir: string) => {
     : resolve(nextSpec.getProjectRoot(), inputDir);
 };
 
-const createTsConfigIfNotExists = (inputDirPath: string) => {
+const createTsConfigIfNotExists = async (inputDirPath: string) => {
   const tsConfigPath = resolve(inputDirPath, "tsconfig.json");
   if (!existsSync(tsConfigPath)) {
     const tsConfig = {
@@ -68,10 +84,10 @@ const createTsConfigIfNotExists = (inputDirPath: string) => {
       include: ["./**/*.ts", "./**/*.js"],
       exclude: ["node_modules", "dist"],
     };
-    writeFileSync(tsConfigPath, JSON.stringify(tsConfig, null, 2));
+    await writeFile(tsConfigPath, JSON.stringify(tsConfig, null, 2));
   }
 
-  const foundTsConfig = JSON.parse(readFileSync(tsConfigPath, "utf8"));
+  const foundTsConfig = JSON.parse(await readFile(tsConfigPath, "utf8"));
   if (!foundTsConfig.compilerOptions.outDir) {
     throw new Error(
       `${constants.name} error: ${inputDirPath}/tsconfig.json must have an outDir specified in compilerOptions.`
@@ -128,7 +144,7 @@ class RunnerPlugin {
       throw new Error(`${constants.name} error: could not find ${tsEntryPath}`);
     }
 
-    const foundTsConfig = createTsConfigIfNotExists(inputDirPath);
+    const foundTsConfig = await createTsConfigIfNotExists(inputDirPath);
     await this.hasher.runWhenChanged(() => compileUserPlugins(inputDirPath), {
       namespace: "compile_nextcasts",
       watchDir: inputDirPath,

@@ -166,10 +166,10 @@ An asyncronous lifecycle method for plugin authors to reduce collected informati
 #### TNextCast.Rewriter
 
 ```typescript
-function(ctx: TNextCast.PluginContext, api: TNextCast.PluginApi): undefined;
+function(ctx: TNextCast.PluginContext, api: TNextCast.PluginApi): Promise<undefined>;
 ```
 
-A syncronous lifecycle method for plugin authors to rewrite code. Runs in series with other plugins.
+An asyncronous lifecycle method for plugin authors to rewrite code. Runs in series with other plugins.
 
 | Parameter | Type                      |
 | :-------- | :------------------------ |
@@ -226,33 +226,15 @@ function(data: SerializableJSON): void;
 
 Overwrites the previously saved data while retaining a history of previous saves. Use this function to store a mapped/formatted data structure for rewriter phase.
 
-#### PluginApi.modify
+#### PluginApi.queueTransform
 
 ```typescript
-function(
-  filePath: string,
-  transform: (collection: JscodeshiftCollection) => JscodeshiftCollection,
-  opts?: { cacheKey?: string; useCache?: boolean; dontCache?: boolean }
-): string;
+function(filePath: string, transform: (JscodeshiftCollect) => JscodeshiftCollection): void
 ```
 
-Supply a `transform` param to modify a file's AST and refer to https://github.com/facebook/jscodeshift for how to modify a `JscodeshiftCollection`. Note: `PluginApi.modify` will prevent you from calling `JscodeshiftCollection.toSource()`, since it prefers to do that internally for caching reasons.
+Queue a file rewrite defined within a transform function. Queued rewrites for each plugin run in series, with later transforms taking the output of previous transforms as input.
 
-#### PluginApi.queueRewrite
-
-```typescript
-function(filePath: string, code: string): void
-```
-
-Tells NextCast to rewrite this file before running NextJS loaders. Note: **This does not rewrite actual source code.**
-
-#### PluginApi.dangerouslyQueueRewrite
-
-```typescript
-function(filePath: string, code: string): void
-```
-
-Tells NextCast to rewrite the actual, version-controlled source code. Important: **This will modify your project's source code. Use carefully.**
+TODO: add some debug utilities to allow applying transforms in arbitrary orders. I think we need some kind of diff/patch like lib so we can rewind/fastforward code.
 
 #### PluginApi.reportError
 
@@ -295,23 +277,6 @@ function(filePath: string): BabelAST;
 ```
 
 Wraps `babel/parser` and returns a cached version of the AST if the `filePath` was already parsed.
-
-#### PluginApi.getRewrites
-
-```typescript
-function(): {
-  dangerous: {
-    history: Array<{ filePath: string; code: string }>,
-    toCommit: Record<string, string>
-  },
-  loader: {
-    history: Array<{ filePath: string; code: string }>,
-    toCommit: Record<string, string>
-  }
-}
-```
-
-Get all queued rewrites that will occur to either the source code (`dangerous`), or within a webpack build (`loader`). If a file was rewritten multiple times, you'll only see the latest rewrite at `[dangerous|loader].toCommit[filePath]` slot.
 
 #### PluginApi.getCollected
 

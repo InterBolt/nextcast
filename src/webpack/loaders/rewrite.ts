@@ -18,7 +18,10 @@ async function rewriteLoader(code: string) {
   let rewrite: string | undefined = undefined;
 
   names.forEach((name) => {
-    const pathToRewrites = resolve(dataDir, name, constants.rewritesFileName);
+    const pathToRewrites = resolve(
+      nextSpec.getProjectRoot(),
+      constants.transformsPath
+    );
     rewrite = get(
       (() => {
         try {

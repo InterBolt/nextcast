@@ -1,20 +1,21 @@
 import { resolve } from "path";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "fs";
-import type STraversals from "./STraversals";
+import { existsSync, readFileSync } from "fs";
 import type { IErrorOrWarning } from "./SErrors";
 import Store from "./Store/index";
 import constants from "../constants";
 import { JSONValue, NextCtx, Route } from "../types";
 import { uniq } from "lodash";
 import nextSpec from "../next/nextSpec";
-import { readdir, writeFile } from "fs/promises";
+import { writeFile } from "fs/promises";
+import SCodemod from "./SCodemod";
+import log from "../log";
 
 class SApp {
   private store: Store;
-  private traversals: STraversals;
+  private codemod: SCodemod;
 
-  constructor(store: Store, traversals: STraversals) {
-    this.traversals = traversals;
+  constructor(store: Store, codemod: SCodemod) {
+    this.codemod = codemod;
     this.store = store;
   }
 
@@ -26,15 +27,9 @@ class SApp {
     }
   };
 
-  private _pathRewriteHistory = ["rewrite_history"] as const;
-
-  private _pathDangerousRewriteHistory = ["dangerous_rewrite_history"] as const;
-
-  private _pathRewritesToCommit = ["rewrites_to_commit"] as const;
-
-  private _pathDangerousRewritesToCommit = [
-    "dangerous_rewrites_to_commit",
-  ] as const;
+  private _pathToInitializedTransforms = ["transforms"] as const;
+  private _pathToFileTransforms = (filePath: string) =>
+    ["initialized_transforms", filePath] as const;
 
   private _pathCollection = (routeName: string) =>
     ["route_collections", routeName] as const;
@@ -51,26 +46,71 @@ class SApp {
   private _pathToAppSaved = ["saves"] as const;
   private _pathAppCollection = ["route_type_collection"] as const;
 
-  public queueRewrite = (filePath: string, code: string) => {
-    this.store.writes.merge<string>(this._pathRewritesToCommit, {
-      [filePath]: code,
+  public queueTransform = (
+    filePath: string,
+    transform: Parameters<SCodemod["modify"]>[1]
+  ) => {
+    const initializedTransforms = this.store.reads.get<Record<string, any>>(
+      this._pathToInitializedTransforms
+    );
+    if (!initializedTransforms[filePath]) {
+      this.store.registerAccessPath(this._pathToFileTransforms(filePath), []);
+    }
+    this.store.writes.merge(this._pathToInitializedTransforms, {
+      [filePath]: true,
     });
-
-    this.store.writes.push(this._pathRewriteHistory, {
-      filePath,
-      code,
-    });
+    this.store.writes.push(this._pathToFileTransforms(filePath), transform);
   };
 
-  public dangerouslyQueueRewrite = (filePath: string, newCode: string) => {
-    this.store.writes.merge<string>(this._pathDangerousRewritesToCommit, {
-      [filePath]: newCode,
-    });
+  public transform = async (currentTransforms: Record<string, string> = {}) => {
+    // Get the queued transforms where keys are file names
+    // and values are arrays of transforms to apply to the file
+    const queuedTransforms = this.store.reads.get<Record<string, any>>(
+      this._pathToInitializedTransforms
+    );
 
-    this.store.writes.push(this._pathDangerousRewriteHistory, {
-      filePath,
-      code: newCode,
-    });
+    // run the transforms in order against either the filesystem or the previous
+    // transforms.
+    const nextTransforms = Object.keys(queuedTransforms)
+      .sort()
+      .reduce((accumTransforms: JSONValue, filePath: string) => {
+        const transforms: Array<Parameters<SCodemod["modify"]>[1]> =
+          queuedTransforms[filePath] || [];
+        if (!Array.isArray(transforms)) {
+          throw new Error(
+            `Expected transforms to be an array for ${filePath}. Found: ${typeof transforms}}: ${transforms}`
+          );
+        }
+
+        // If there are no transforms, then just return the previous transforms
+        // and log a warning since this is probably a mistake.
+        if (!transforms.length) {
+          log.warn(
+            `An empty array was found for file: ${filePath.replace(
+              nextSpec.getProjectRoot(),
+              ""
+            )} transforms in plugin: ${this.store._unsafePluginName}.`
+          );
+          return accumTransforms;
+        }
+
+        // Queued transforms should always modify the previous transforms
+        // rather than the raw source code.
+        let modifiedCode: string;
+        transforms.forEach((transform) => {
+          const codeToModify =
+            modifiedCode ||
+            accumTransforms[filePath] ||
+            readFileSync(filePath, "utf-8");
+          modifiedCode = this.codemod.modify(codeToModify, transform);
+        });
+
+        // Overwrite the previous transforms with the new transforms
+        accumTransforms[filePath] = modifiedCode;
+        return accumTransforms;
+      }, currentTransforms);
+
+    return nextTransforms;
   };
 
   public collect = (data: JSONValue) => {
@@ -248,69 +288,10 @@ class SApp {
     warnings: Array<IErrorOrWarning>
   ) => this.stashErrorsOrWarnings(dataDir, warnings, "warning");
 
-  public getRewrites = () => {
-    return {
-      dangerous: {
-        history: this.store.reads.get<
-          Array<{ filePath: string; code: string }>
-        >(this._pathDangerousRewriteHistory),
-        toCommit: this.store.reads.get<Record<string, string>>(
-          this._pathDangerousRewritesToCommit
-        ),
-      },
-      loader: {
-        history: this.store.reads.get<
-          Array<{ filePath: string; code: string }>
-        >(this._pathRewriteHistory),
-        toCommit: this.store.reads.get<Record<string, string>>(
-          this._pathRewritesToCommit
-        ),
-      },
-    };
-  };
-
-  public getDangerousRewrites = () => {
-    return this.store.reads.get<Record<string, string>>(
-      this._pathDangerousRewritesToCommit
-    );
-  };
-
-  public stashRewrites = async (dataDir: string) => {
-    if (!existsSync(dataDir)) {
-      throw new Error(
-        `Cannot commit rewrites because ${dataDir} does not exist.`
-      );
-    }
-
-    this.overwriteProtection(dataDir);
-    await writeFile(
-      resolve(dataDir, constants.rewritesFileName),
-      JSON.stringify(this.getRewrites(), null, 2)
-    );
-  };
-
-  public executeDangerousRewrites = async () => {
-    const rewriteMap = this.store.reads.get<Record<string, string>>(
-      this._pathDangerousRewritesToCommit
-    );
-    Object.keys(rewriteMap).map((filePath) => {
-      this.overwriteProtection(filePath);
-    });
-
-    await Promise.all(
-      Object.entries(rewriteMap).map(([filePath, code]) =>
-        writeFile(filePath, code)
-      )
-    );
-  };
-
   public loadNextCtx = (ctx: NextCtx) => {
     const { routes } = ctx;
 
-    this.store.registerAccessPath(this._pathDangerousRewritesToCommit, {});
-    this.store.registerAccessPath(this._pathDangerousRewriteHistory, []);
-    this.store.registerAccessPath(this._pathRewritesToCommit, {});
-    this.store.registerAccessPath(this._pathRewriteHistory, []);
+    this.store.registerAccessPath(this._pathToInitializedTransforms, {});
     this.store.registerAccessPath(this._pathAppCollection, []);
     this.store.registerAccessPath(this._pathToAppSaved, []);
     routes.forEach((route) => {

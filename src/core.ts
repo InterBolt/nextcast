@@ -11,6 +11,7 @@ import {
   ParsedBabel,
   PluginCtx,
   NextCtx,
+  JSONValue,
 } from "./types";
 import SCodemod from "./classes/SCodemod";
 import nextSpec from "./next/nextSpec";
@@ -19,7 +20,7 @@ import log from "./log";
 
 const NEXT_CTX_PLUGIN_NAME = "__NEXT_CTX";
 
-const buildOptions = (name: string, coreOptions: any): CoreOptions => {
+const buildOptions = (name: string): CoreOptions => {
   const dataDir = nextSpec.getDataDir();
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir);
@@ -30,11 +31,10 @@ const buildOptions = (name: string, coreOptions: any): CoreOptions => {
     mkdirSync(nextcastDir);
   }
 
-  coreOptions.nextcastDir = nextcastDir;
-  coreOptions.rewrite = !!coreOptions.rewrite || false;
-  coreOptions.inputDir = coreOptions.inputDir || "nextcasts";
-
-  return coreOptions;
+  return {
+    nextcastDir,
+    inputDir: "nextcasts",
+  };
 };
 
 export const prepluginPhaseRunner = async () => {
@@ -54,18 +54,21 @@ export const prepluginPhaseRunner = async () => {
 export const pluginPhaseRunner = <PluginConfig extends any>(
   plugin: Plugin<PluginConfig>,
   nextCtx: NextCtx,
-  coreOptions: CoreOptions = {},
   prevParseCache: Record<string, ParsedBabel> = {}
 ): {
-  builder: () => Promise<() => Promise<void>>;
+  builder: () => Promise<
+    () => Promise<{
+      stash: () => Promise<SApp["transform"]>;
+      error: Error | null;
+    }>
+  >;
   parseCache: any;
 } => {
-  let builderError: Error | null = null;
-  let collectorError: Error | null = null;
+  let phaseError: Error | null = null;
 
   try {
     const { Api, pluginCtx, options, store, errors, app } = (() => {
-      const options = buildOptions(plugin.name, coreOptions);
+      const options = buildOptions(plugin.name);
 
       // setup cache and start the plugin
       const store = new Store();
@@ -74,8 +77,8 @@ export const pluginPhaseRunner = <PluginConfig extends any>(
       // setup setup errors, traversals, and pages
       const errors = new SErrors(store);
       const traversals = new STraversals(store);
-      const app = new SApp(store, traversals);
       const codemod = new SCodemod(store);
+      const app = new SApp(store, codemod);
 
       // load next ctx data into the cache
       app.loadNextCtx(nextCtx);
@@ -95,9 +98,7 @@ export const pluginPhaseRunner = <PluginConfig extends any>(
         reportWarning: errors.reportWarning,
         collect: app.collect,
         save: app.save,
-        queueRewrite: app.queueRewrite,
-        dangerouslyQueueRewrite: app.dangerouslyQueueRewrite,
-        getRewrites: app.getRewrites,
+        queueTransform: app.queueTransform,
         _: {
           getImports: traversals.getImports,
           getClientComponents: app.getClientComponents,
@@ -121,8 +122,8 @@ export const pluginPhaseRunner = <PluginConfig extends any>(
         log.error(
           `Failed during the collection phase of the plugin: ${plugin.name}`
         );
-        collectorError = new Error(err);
-        console.error(collectorError);
+        phaseError = new Error(err);
+        console.error(phaseError);
       }
 
       return {
@@ -144,39 +145,40 @@ export const pluginPhaseRunner = <PluginConfig extends any>(
         log.error(
           `Failed during the builder phase of the plugin: ${plugin.name}`
         );
-        builderError = new Error(err);
-        console.error(builderError);
+        phaseError = new Error(err);
+        console.error(phaseError);
       }
 
       const rewriter = async () => {
-        if (collectorError || builderError) {
-          log.error(
-            `Phase ${plugin.name} failed during the collection or builder phase.`
-          );
-
-          return;
-        }
         if (typeof plugin.rewriter === "function") {
-          plugin.rewriter(pluginCtx, Api);
+          await plugin.rewriter(pluginCtx, Api);
         }
 
-        await app.stashCollection(options.nextcastDir);
-        await app.stashSavedBuild(options.nextcastDir);
-        await app.stashErrors(options.nextcastDir, errors.getErrors() as any);
-        await app.stashWarnings(
-          options.nextcastDir,
-          errors.getWarnings() as any
-        );
-        await app.stashRewrites(options.nextcastDir);
+        if (phaseError) {
+          throw phaseError;
+        }
 
         const foundErrors = errors.getErrors();
         if (foundErrors.length > 0) {
           errors.log();
-        } else {
-          await app.executeDangerousRewrites();
+          phaseError = new Error(
+            `${foundErrors.length} NextCast errors were found.`
+          );
         }
 
-        store._dangerouslyEndPlugin();
+        const stash = async () => {
+          await app.stashCollection(options.nextcastDir);
+          await app.stashSavedBuild(options.nextcastDir);
+          await app.stashErrors(options.nextcastDir, errors.getErrors() as any);
+          await app.stashWarnings(
+            options.nextcastDir,
+            errors.getWarnings() as any
+          );
+
+          return app.transform;
+        };
+
+        return { stash, error: phaseError };
       };
 
       return rewriter;
@@ -184,8 +186,8 @@ export const pluginPhaseRunner = <PluginConfig extends any>(
 
     return { builder, parseCache: store.getParseCache() };
   } catch (err) {
-    // only log if we didn't already log the error in the builder or collector
-    if (!builderError && !collectorError) {
+    // only log if we didn't already log the error in a phase
+    if (!phaseError) {
       console.error(err);
     }
     process.exit(1);

@@ -3,8 +3,9 @@ import { existsSync, readFileSync } from "fs";
 import * as Utils from "../utils";
 import type Store from "./Store";
 import nextSpec from "../next/nextSpec";
+import { createHash } from "crypto";
 
-const getCollectionProxy: (collection: Collection) => Collection = (
+const collectionProxy: (collection: Collection) => Collection = (
   collection: Collection
 ) =>
   new Proxy(collection, {
@@ -36,58 +37,28 @@ class SCodemod {
 
   private _pathModifications = ["codemods", "modifications"];
 
-  private _parse = (filePath: string) =>
-    jscodeshift.withParser("tsx")(
-      readFileSync(nextSpec.withCorrectExt(filePath), "utf8")
+  private _parse = (contents: string) => {
+    const hash = createHash("sha256").update(contents).digest("hex");
+    const cached = this.store.reads.get<Record<string, Collection>>(
+      this._pathModifications
     );
+    if (cached && cached[hash]) {
+      return cached[hash];
+    }
+
+    return jscodeshift.withParser("tsx")(contents);
+  };
 
   public modify = (
-    file: string,
-    transform: (collection: Collection) => Collection,
-    opts: { cacheKey?: string; useCache?: boolean; dontCache?: boolean } = {}
+    contents: string,
+    transform: (collection: Collection, inputContents: string) => Collection
   ) => {
-    if (!existsSync(file)) {
-      throw new Error(`File ${file} does not exist`);
-    }
+    const collection = this._parse(contents);
     if (!this.store) {
-      return transform(getCollectionProxy(this._parse(file))).toSource();
+      return transform(collectionProxy(collection), contents).toSource();
     }
 
-    const { useCache = true, dontCache = false, cacheKey = null } = opts;
-    const weakMapCacheKey = cacheKey ? { [cacheKey]: cacheKey } : null;
-
-    type WeakMapCache = WeakMap<
-      ((...args: any[]) => any) | { [k in string]: string },
-      string
-    >;
-
-    if (useCache) {
-      const cached = this.store.reads.get<WeakMapCache>(
-        this._pathModifications
-      );
-      const cachedResult = cached.get(
-        weakMapCacheKey ? weakMapCacheKey : transform
-      );
-      if (typeof cachedResult === "string") {
-        return cachedResult;
-      }
-    }
-
-    const modifiedCollection = transform(getCollectionProxy(this._parse(file)));
-    const modifiedSourceCode = modifiedCollection.toSource();
-
-    if (dontCache) {
-      return modifiedSourceCode;
-    }
-
-    const cached = this.store.reads.get<WeakMapCache>(this._pathModifications);
-
-    cached.set(
-      weakMapCacheKey ? weakMapCacheKey : transform,
-      modifiedSourceCode
-    );
-
-    return modifiedSourceCode;
+    return transform(collectionProxy(collection), contents).toSource();
   };
 }
 

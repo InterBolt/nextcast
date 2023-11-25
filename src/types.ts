@@ -23,11 +23,9 @@ export type PluginApi = {
   modify: SCodemod["modify"];
   collect: SApp["collect"];
   save: SApp["save"];
-  queueRewrite: SApp["queueRewrite"];
-  dangerouslyQueueRewrite: SApp["dangerouslyQueueRewrite"];
+  queueTransform: SApp["queueTransform"];
   reportError: SErrors["reportError"];
   reportWarning: SErrors["reportWarning"];
-  getRewrites: SApp["getRewrites"];
   getCollected: SApp["getCollected"];
   getSaved: SApp["getSaved"];
   getSavedHistory: SApp["getSavedHistory"];
@@ -58,7 +56,7 @@ export type Collector = (ctx: PluginCtx, api: PluginApi) => undefined;
 
 export type Builder = (ctx: PluginCtx, api: PluginApi) => Promise<undefined>;
 
-export type Rewriter = <T>(ctx: PluginCtx, api: PluginApi) => undefined;
+export type Rewriter = (ctx: PluginCtx, api: PluginApi) => Promise<undefined>;
 
 export class Plugin<Config extends Record<string, any>> {
   public name: string;
