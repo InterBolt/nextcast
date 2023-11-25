@@ -38,14 +38,6 @@ class SCodemod {
   private _pathModifications = ["codemods", "modifications"];
 
   private _parse = (contents: string) => {
-    const hash = createHash("sha256").update(contents).digest("hex");
-    const cached = this.store.reads.get<Record<string, Collection>>(
-      this._pathModifications
-    );
-    if (cached && cached[hash]) {
-      return cached[hash];
-    }
-
     return jscodeshift.withParser("tsx")(contents);
   };
 
