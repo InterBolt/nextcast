@@ -1,5 +1,5 @@
-export { withNextcast as withNextcast } from "./next";
-export { withNextcast as withNextcastUnstable } from "./next";
+export { withNextCast as withNextCast } from "./next";
+export { withNextCast as withNextCastUnstable } from "./next";
 
 export type * as TNextcast from "./types";
 export type * as TNextcastUnstable from "./types";

@@ -46,12 +46,12 @@ Configure the eslint plugin. Here's an example `.eslintrc.json` file:
 Modify your `next.config.js` file:
 
 ```javascript
-const { withNextcast } = require("nextcast");
+const { withNextCast } = require("nextcast");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = { ... };
 
-module.exports = withNextcast(nextConfig);
+module.exports = withNextCast(nextConfig);
 ```
 
 Create a `nextcasts/index.ts` file for your custom plugins:
@@ -73,19 +73,22 @@ export default CustomPlugins;
 
 Once all of that is in place, you can head down to the API reference below to learn how to create a new NextCast plugin.
 
-## API reference for `withNextcast`
+## API reference for `withNextCast`
 
 #### Usage
 
 ```javascript
 // next.config.js
 
-const { withNextcast } = require("nextcast");
+const { withNextCast } = require("nextcast");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = { ... };
 
-module.exports = withNextcast(nextConfig, { /* ... options ... */ });
+/** @type {import('nextcast').TNextCast.WithNextCastOptions} **/
+const nextcastOptions = { ... };
+
+module.exports = withNextCast(nextConfig, nextcastOptions);
 ```
 
 #### API
@@ -113,7 +116,7 @@ When plugins are provided as a string the resolution strategy goes as follows:
 1. First, check in the node_modules folder for a matching package with a `dist` subdirectory. Eg: `special-plugin` will become `$repo/node_modules/special-plugin/dist`.
 2. If not found, check relative to your project's root for a matching dir with a `dist` subdirectory. Eg: `special-plugin` will become `$repo/special-plugin/dist`.
 
-If no plugin is found for a particular string, NextCast will throw before building. Vendors are responsible for compiling their plugins to JS before publishing. NextCast will only compile TS for user plugins.
+If no plugin is found for a particular string, NextCast will throw before building. _Vendors are responsible for compiling their plugins to JS before publishing. NextCast will only compile TS for user plugins._
 
 ## API reference for plugins
 

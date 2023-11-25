@@ -5,15 +5,9 @@ import * as Types from "./types";
 import nextSpec from "./next/nextSpec";
 import { existsSync } from "fs";
 
-export const withNextcast = (
+export const withNextCast = (
   nextConfig: Record<string, any>,
-  opts?: {
-    plugins?:
-      | ((
-          userPlugins: Array<Types.Plugin<any>>
-        ) => Array<string | Types.Plugin<any>>)
-      | Array<string | Types.Plugin<any>>;
-  }
+  opts?: Types.WithNextCastOptions
 ) => {
   const { plugins = [] } = opts || {};
   const getPlugins = (

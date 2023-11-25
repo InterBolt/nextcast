@@ -84,3 +84,9 @@ export type CoreOptions = {
   rewrite?: boolean;
   nextcastDir?: string;
 };
+
+export type WithNextCastOptions = {
+  plugins?:
+    | ((userPlugins: Array<Plugin<any>>) => Array<string | Plugin<any>>)
+    | Array<string | Plugin<any>>;
+};
