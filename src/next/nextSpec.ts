@@ -1,10 +1,10 @@
 import { existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { glob } from "glob";
-import nextConstants from "./nextConstants";
-import * as Utils from "../utils";
-import log from "../log";
-import constants from "../constants";
+import nextConstants from "@src/next/nextConstants";
+import * as Utils from "@src/utils";
+import log from "@log";
+import constants from "@src/constants";
 
 const getProjectRoot = (): string => {
   const foundConfig = nextConstants.CONFIG_EXTS.find((ext) =>

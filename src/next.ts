@@ -1,8 +1,8 @@
 import { resolve } from "path";
-import constants from "./constants";
-import RunnerPlugin from "./webpack/plugin/Runner";
-import * as Types from "./types";
-import nextSpec from "./next/nextSpec";
+import constants from "@src/constants";
+import RunnerPlugin from "@src/webpack/plugin/Runner";
+import * as Types from "@src/types";
+import nextSpec from "@src/next/nextSpec";
 import { existsSync } from "fs";
 
 export const withNextCast = (

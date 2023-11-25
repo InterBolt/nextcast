@@ -1,8 +1,8 @@
 import jscodeshift, { Collection } from "jscodeshift";
 import { existsSync, readFileSync } from "fs";
-import * as Utils from "../utils";
-import type Store from "./Store";
-import nextSpec from "../next/nextSpec";
+import * as Utils from "@src/utils";
+import type Store from "@src/classes/Store";
+import nextSpec from "@src/next/nextSpec";
 import { createHash } from "crypto";
 
 const collectionProxy: (collection: Collection) => Collection = (

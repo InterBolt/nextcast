@@ -1,14 +1,14 @@
 import { resolve } from "path";
 import { existsSync, readFileSync } from "fs";
-import type { IErrorOrWarning } from "./SErrors";
-import Store from "./Store/index";
-import constants from "../constants";
-import { JSONValue, NextCtx, Route } from "../types";
+import type { IErrorOrWarning } from "@src/classes/SErrors";
+import Store from "@src/classes/Store/index";
+import constants from "@src/constants";
+import { JSONValue, NextCtx, Route } from "@src/types";
 import { uniq } from "lodash";
-import nextSpec from "../next/nextSpec";
+import nextSpec from "@src/next/nextSpec";
 import { writeFile } from "fs/promises";
-import SCodemod from "./SCodemod";
-import log from "../log";
+import SCodemod from "@src/classes/SCodemod";
+import log from "@log";
 
 class SApp {
   private store: Store;

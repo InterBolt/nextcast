@@ -1,8 +1,8 @@
 import { resolve } from "path";
 import { existsSync, readFileSync, readdirSync } from "fs";
 import type { Rule } from "eslint";
-import type { IErrorOrWarning } from "../classes/SErrors";
-import constants from "../constants";
+import type { IErrorOrWarning } from "@src/classes/SErrors";
+import constants from "@src/constants";
 
 const reportErrorsOrWarnings = (
   context: Rule.RuleContext,

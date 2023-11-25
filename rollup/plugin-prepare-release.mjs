@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 import { readFileSync, writeFileSync } from "fs";
 import semver from "semver";
 import { execSync } from "child_process";
+import log from "../log/index.js";
 
 const pluginPrerelease = () => {
   return {
@@ -16,19 +17,29 @@ const pluginPrerelease = () => {
       const pkgName = "nextcast";
       const pkgOrg = pkgName.includes("/") ? pkgName.split("/")[0] : "";
       const pkgTitle = pkgName.includes("/") ? pkgName.split("/")[1] : pkgName;
-      const pkgNextVersion = (() => {
-        try {
-          return semver.inc(
-            execSync(`npm view ${pkgName} version`, {
-              encoding: "utf-8",
-              stdio: "ignore",
-            }).trim(),
-            "prerelease"
-          );
-        } catch (err) {
-          return currentPkg.version;
-        }
-      })();
+      const pkgNextVersion =
+        process.env.BUILD === "ci"
+          ? (() => {
+              const npmVersionCmd = `npm view ${pkgName} version`;
+              let currentVersion;
+              let nextVersion;
+              try {
+                currentVersion = execSync(npmVersionCmd, {
+                  encoding: "utf-8",
+                }).trim();
+                log.success(`Found latest version: ${currentVersion}`);
+                nextVersion = semver.inc(currentVersion, "prerelease");
+                log.info(`Incremented prerelease => ${nextVersion}`);
+              } catch (err) {
+                nextVersion = currentPkg.version;
+                log.warn(
+                  `Using local package.json version. Skipping increment.`
+                );
+              }
+
+              return nextVersion;
+            })()
+          : currentPkg.version;
 
       if (semver.compare(pkgNextVersion, currentPkg.version) === -1) {
         const errorMessages = [
@@ -84,9 +95,10 @@ const pluginPrerelease = () => {
 
       // create the eslint plugin package.json
       writeFileSync(
-        resolve(rootDir, `eslint-plugin/package.json`),
+        resolve(rootDir, "eslint-plugin/package.json"),
         JSON.stringify(eslintlintPluginPKG, null, 2)
       );
+      log.success(`created /eslint-plugin/package.json`);
 
       // IMPORTANT: this gets run AFTER the CD install step.
       // If you thought too hard and assumed the CD would fail because the packages
@@ -96,6 +108,7 @@ const pluginPrerelease = () => {
         resolve(rootDir, "package.json"),
         JSON.stringify(packagePKG, null, 2)
       );
+      log.success(`created /package.json`);
     },
   };
 };

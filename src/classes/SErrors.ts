@@ -6,9 +6,9 @@ import {
 import colors from "colors/safe";
 import { existsSync, readFileSync } from "fs";
 import { isEqual } from "lodash";
-import Store from "./Store/index";
-import * as Utils from "../utils";
-import nextSpec from "../next/nextSpec";
+import Store from "@src/classes/Store/index";
+import * as Utils from "@src/utils";
+import nextSpec from "@src/next/nextSpec";
 
 type LocPosition = {
   start: {

@@ -1,9 +1,9 @@
 import parser from "@babel/parser";
-import type Store from "./classes/Store";
-import type SApp from "./classes/SApp";
-import type SErrors from "./classes/SErrors";
-import type STraversals from "./classes/STraversals";
-import SCodemod from "./classes/SCodemod";
+import type Store from "@src/classes/Store";
+import type SApp from "@src/classes/SApp";
+import type SErrors from "@src/classes/SErrors";
+import type STraversals from "@src/classes/STraversals";
+import SCodemod from "@src/classes/SCodemod";
 
 interface JSONArray extends Array<JSONValue> {}
 

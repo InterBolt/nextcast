@@ -2,12 +2,12 @@ import { isAbsolute, resolve } from "path";
 import { existsSync } from "fs";
 import { readFile, writeFile } from "fs/promises";
 import { execSync } from "child_process";
-import { pluginPhaseRunner, prepluginPhaseRunner } from "../../core";
-import constants from "../../constants";
-import type * as Types from "../../types";
-import log from "../../log";
-import HHasher from "../../classes/HHasher";
-import nextSpec from "../../next/nextSpec";
+import { pluginPhaseRunner, prepluginPhaseRunner } from "@src/core";
+import constants from "@src/constants";
+import type * as Types from "@src/types";
+import log from "@log";
+import HHasher from "@src/classes/HHasher";
+import nextSpec from "@src/next/nextSpec";
 
 // This will run the preplugin phase first which parses and loads some context
 // that all plugins might need.

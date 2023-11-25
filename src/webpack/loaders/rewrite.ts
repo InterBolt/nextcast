@@ -1,8 +1,8 @@
 import { resolve } from "path";
 import { readdirSync, statSync } from "fs";
-import constants from "../../constants";
+import constants from "@src/constants";
 import { get } from "lodash";
-import nextSpec from "../../next/nextSpec";
+import nextSpec from "@src/next/nextSpec";
 
 const getPluginDirs = (dataDir: string) =>
   readdirSync(dataDir)

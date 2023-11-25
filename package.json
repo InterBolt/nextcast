@@ -1,10 +1,10 @@
 {
   "name": "nextcast",
-  "version": "0.1.0-alpha.10",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "browser": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "version": "0.1.0-alpha.11",
+  "main": "./dist/src/index.js",
+  "module": "./dist/src/index.js",
+  "browser": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "engines": {
     "yarn": "use npm!"
   },
@@ -23,17 +23,18 @@
     "dist"
   ],
   "scripts": {
-    "dev:build": "rimraf dist && npx rollup -w -c ./rollup/config.mjs",
-    "ci:build": "rimraf dist && npx rollup -c ./rollup/config.mjs",
+    "dev:build": "rimraf dist && npx rollup -wc ./rollup/config.mjs --environment BUILD:local",
+    "ci:build": "rimraf dist && npx rollup -c ./rollup/config.mjs --environment BUILD:ci",
     "ci:test": "echo \"No tests yet\"",
-    "prepublishOnly": "PUBLISH=true npm run ci:build"
+    "prepublishOnly": "PUBLISH=true npm run ci:build",
+    "prepare": "ts-patch install -s"
   },
   "dependencies": {
     "@babel/parser": "^7.23.3",
     "@babel/traverse": "^7.23.3",
     "app-root-path": "^3.1.0",
     "colors": "^1.4.0",
-    "eslint-plugin-nextcast": "file:eslint-plugin",
+    "eslint-plugin-nextcast": "file:./eslint-plugin",
     "glob": "^10.3.10",
     "jscodeshift": "^0.15.1",
     "lodash": "^4.17.21",
@@ -48,12 +49,14 @@
     "@types/jscodeshift": "^0.11.9",
     "@types/lodash": "^4.14.200",
     "@types/node": "^20",
+    "eslint-plugin-nextcast": "file:./eslint-plugin",
     "rimraf": "^5.0.5",
     "rollup": "^4.4.1",
     "semver": "^7.5.4",
+    "ts-patch": "^3.0.2",
     "type-fest": "^4.7.1",
     "typescript": "^5.2.2",
-    "eslint-plugin-nextcast": "file:./eslint-plugin"
+    "typescript-transform-paths": "^3.4.6"
   },
   "homepage": "https://github.com/InterBolt/nextcast#readme",
   "repository": {

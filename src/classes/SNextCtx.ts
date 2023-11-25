@@ -1,8 +1,8 @@
 import { readFileSync } from "fs";
-import STraversals from "./STraversals";
-import Store from "./Store/index";
-import { NextCtx } from "../types";
-import nextSpec from "../next/nextSpec";
+import STraversals from "@src/classes/STraversals";
+import Store from "@src/classes/Store/index";
+import { NextCtx } from "@src/types";
+import nextSpec from "@src/next/nextSpec";
 
 class SNextCtx {
   private traversals: STraversals;

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "fs";
 import { set } from "lodash";
 import * as parser from "@babel/parser";
-import type { ParsedBabel } from "../../types";
+import type { ParsedBabel } from "@src/types";
 import { Reads, Writes } from "./queries";
 
 const STORE_PATH_DELIMITER = ".0BslO9.";

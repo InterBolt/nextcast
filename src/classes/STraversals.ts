@@ -1,8 +1,8 @@
 import traverse, { TraverseOptions } from "@babel/traverse";
-import Store from "./Store/index";
-import * as Utils from "../utils";
-import nextSpec from "../next/nextSpec";
-import nextConstants from "../next/nextConstants";
+import Store from "@src/classes/Store/index";
+import * as Utils from "@src/utils";
+import nextSpec from "@src/next/nextSpec";
+import nextConstants from "@src/next/nextConstants";
 
 type ResolvedImport = {
   file: string;

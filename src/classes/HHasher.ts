@@ -1,6 +1,6 @@
 import { dirname, isAbsolute, join, resolve } from "path";
-import * as Utils from "../utils";
-import constants from "../constants";
+import * as Utils from "@src/utils";
+import constants from "@src/constants";
 import {
   existsSync,
   mkdirSync,
@@ -12,7 +12,7 @@ import {
 } from "fs";
 import { createHash } from "crypto";
 import { glob } from "glob";
-import nextSpec from "../next/nextSpec";
+import nextSpec from "@src/next/nextSpec";
 
 class HHasher {
   public initialized = false;

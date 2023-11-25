@@ -1,9 +1,9 @@
 import { resolve } from "path";
 import { mkdirSync, existsSync } from "fs";
-import Store from "./classes/Store/index";
-import SApp from "./classes/SApp";
-import SErrors from "./classes/SErrors";
-import STraversals from "./classes/STraversals";
+import Store from "@src/classes/Store/index";
+import SApp from "@src/classes/SApp";
+import SErrors from "@src/classes/SErrors";
+import STraversals from "@src/classes/STraversals";
 import {
   CoreOptions,
   Plugin,
@@ -12,11 +12,11 @@ import {
   PluginCtx,
   NextCtx,
   JSONValue,
-} from "./types";
-import SCodemod from "./classes/SCodemod";
-import nextSpec from "./next/nextSpec";
-import SNextCtx from "./classes/SNextCtx";
-import log from "./log";
+} from "@src/types";
+import SCodemod from "@src/classes/SCodemod";
+import nextSpec from "@src/next/nextSpec";
+import SNextCtx from "@src/classes/SNextCtx";
+import log from "@log";
 
 const NEXT_CTX_PLUGIN_NAME = "__NEXT_CTX";
 
